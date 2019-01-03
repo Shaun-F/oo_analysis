@@ -21,7 +21,7 @@ class signal(object):
 	def __init__(self,params):
 		for key,param in params.items(): #python 3.x
 			setattr(self,key,param)
-		callable = getattr(self,self.signal) # or whatever the rel. attr. is
+		#callable = getattr(self,self.signal) # or whatever the rel. attr. is
 		return None
 
 
@@ -35,7 +35,7 @@ class signal(object):
 		sigma_v = 160
 		v_lab = modulation_vel + sigma_v*np.sqrt(2)
 
-		return IsThmSph(freq, mass, sigma_v, v_lab)
+		return self.ITS(freq, mass, sigma_v, v_lab)
 
 	def pCDM_only(self,mass,freq, v_lab):
 		"""
@@ -87,7 +87,7 @@ class signal(object):
 
 		return A
 
-	def ITS(self, freq, other_params): #bin_width,sigmav,vt,vr, freq,mass,sigma_v,v_lab
+	def ITS(self, freq, mass, sigma_v, v_lab): #bin_width,sigmav,vt,vr, freq,mass,sigma_v,v_lab
 		"""Description: Function takes in parameters and outputs probability to find axion at input frequency
 		Parameters: frequency (MHz) to find corresponding probability. Mass of axion in ev. velocity dispersion of axions in Kilometers per second. velocity of laboratory in galactic frame in Kilometers per second.
 		Output: Probability to find axion at input frequency"""
@@ -99,6 +99,7 @@ class signal(object):
 		E = freq*h*10**(6) #Energy of equivalent photon at input frequency in Hz
 		KE = E-RME #Kinetic energy of axion in eV
 		rmfreq = (RME/h)*10**(-6) # Rest mass frequency of axion
+		print(KE, RME, "\n\n\n")
 		v = c*np.sqrt((2*KE)/RME) #velocity of axion
 		beta = 1/(2*(sigma_v**2)) #this is the beta from turner 1990
 

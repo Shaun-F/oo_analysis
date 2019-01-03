@@ -5,16 +5,14 @@ Created by: Erik Lentz
 Creation Date: 6/1/18
 """
 import numpy as np
-import scipy as sp
 from astropy import constants as Cnsts
 from datetime import datetime as dt
 from dateutil.parser import parse
 import pytz
-import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
-import matplotlib.pylab as plt
-import pandas as pd
-import argparse
+import sys
+sys.path.append("..")
+import toolbox.coord_transform as tf_lib
+from signals.signal_lib import signal
 
 class modulation():
 	def __init__(self,**params):
@@ -26,95 +24,52 @@ class modulation():
 		"""
 		Function runs modulation routine 
 		"""
-		modulation_type = self.pec_vel
-		timestamps = self.timestamp
-		shape_model = self.signal
-		axion_mass = self.axion_mass
-		scans = self.scans
+		#Define default values
+		default_keys = ["pec_vel", "timestamp", "signal", "axion_mass", "scans"]
+		default = {key: getattr(self, key) for key in default_keys}
+		
+		#define secondary values
+		secondary={}
+		for key in self.__dict__.keys():
+			if key not in default_keys:
+				secondary[key] = getattr(self, key)
+			
+		modulation_type = default["pec_vel"]
+		timestamps = default["timestamp"]
+		shape_model = default["signal"]
+		axion_mass = default["axion_mass"]
+		scans = default["scans"]
 		
 		signals = {}
 		for key in scans.keys():
-			signals[key] = self.modulatedsignal(modulation_type, timestamps[key], shape_model, axion_mass)
+			signals[key] = self.modulatedsignal(modulation_type, timestamps[key], shape_model, axion_mass, **secondary)
 		return signals
+		
 	# methods for incorporating several levels of peculiar velocities and other
 	#modulating effects
-	def Equ_to_Gal(self,numberofhours):
-		"""
-		Description: Function returns the velocity vector of the lab in galactic 	cylindrical coordinates using a matrix equation found in Spherical Astronomy by Robin Green
-		Parameters: Number of hours since B1950
-		Output:Velocity vector in Galactic cylindrical Coordinates
-		"""
+	
+	def modulate(self,modulation_type, timestamp):
 
-		phi = 123 # angle between vr and vt at the start of B1950 epoch
-		v=0.4638*np.cos(47.66) #0.4638 is rotation speed of earth, 47.66 is latitude of experiment
+		vel_orbit = tf_lib.transformer().earth_vel_GalacticFrame(timestamp)
+		#vt_orbit = vel_orbit["vt"]
 
-		t = numberofhours*3600 # sidereal day in seconds after midnight
-		T = 86164.09056 # a sidereal day in seconds
-		vx = v*np.cos(2*np.pi*t/(T+phi))
-		vy = v*np.sin(2*np.pi*t/(T+phi))
-		vz = 0
+		vel_rotation = tf_lib.transformer().experiment_vel_GalacticFrame(timestamp)
+		#vt_rotation = vel_rotation["vt"]
 
-		vr = -0.0669887*vx + -0.8727558*vy + -0.4835389*vz
-		vt = 0.4927285*vx + -0.4503470*vy + 0.7445846*vz
-		vz  = -0.8676008*vx + -0.1883746*vy + 0.4601998*vz
-		#Takes in the velocity vector of the experiment in equatorial cartesian basis and transforms to the galactic cylindrical basis
-
-		return {"vr":vr, "vt":vt, "vz":vz}
-
-	def earth_orbit_velocity(self, date):
-		"""
-		Description: Function returns the orbital velocity in the cylindrical galactic center basis vr, vt, vz
-		Parameters:Timestamp
-		Output: Dictionary of velocity components 'vr', 'vt', 'vz'
-		"""
-		time = timestamptranslator(date)
-		t = time*86164.09056/86400
-		T = 3.1558*10**7
-		phi = 86.14
-		v = 29.785
-		v_plane = {"vx":v*np.cos(2*np.pi*t/(T+phi)), "vy":v*np.sin(2*np.pi*t/(T+phi)), "vz":0}
-		v_gal = {"vr":Equ_to_Gal(time)["vr"]*v_plane["vx"], "vt":Equ_to_Gal(time)["vt"]*v_plane["vy"]}
-
-		return v_gal
-
-	def cavity_rotation_velocity(self, date):
-		"""
-		Description: Function returns the cavitys orbital velocity in cylindrical galactic center basis vr, vt, vz
-		Parameters: timestamp
-		Output: Dictionary to velocity components 'vr', 'vt', 'vz'
-		"""
-		time = timestamptranslator(date)
-		t = time*3600
-		T = 86164.09056
-		phi = -122.3 #phi is the angle between vr and vt  on June 17th 1998 -- because the earth is closest to the center of galaxy on this day
-		v = 0.4638*np.cos(47.66)
-		v_spin = {'vx': v*np.cos(2*np.pi*t/(T+phi)), 'vy':v*np.cos(2*np.pi*t/(T+phi)), 'vz':0}
-		v_gal = {'vy': Equ_to_Gal(time)['vr']*v_spin['vx'], 'vt': Equ_to_Gal(time)['vt']*v_spin['vy']}
-
-		return v_gal
-
-	def modulate(self,modulation_type, date):
-		hourtime = timestamptranslator(timestamp)
-
-		vel_orbit = (earth_orbit_velocity(date))
-		vt_orbit = vel_orbit["vt"]
-
-		vel_rotation = cavity_rotation_velocity(date)
-		vt_rotation = vel_rotation["vt"]
-
+		vel_solar = tf_lib.transformer().solar_vel_GalacticFrame()
 		if modulation_type == None or modulation_type =="None":
 			modulation_type = "solar"
 
 		if modulation_type == "solar":
-			return 0
+			return vel_solar
 		elif modulation_type=="earth orbit":
-			return vt_orbit
+			return vel_orbit
 		elif modulation_type=="earth rotation":
-			return vt_orbit + vt_rotation
+			return vel_rotation 
 		else:
 			return "Error: modulation type not recognized"
 
-	def modulatedsignal(self,modulation_type, timestamp, shape_model, axion_mass, resolution=None, wantTseries=None, startfreq=None, alpha=None, beta=None, T=None):
+	def modulatedsignal(self, modulation_type, timestamp, shape_model, axion_mass, **kwargs):
 		"""
 		Description:Function bins a given velocity-modulated axion shape by integration.
 
@@ -125,31 +80,32 @@ class modulation():
 		Output: velocity-modulated signal shape over frequency or time.
 		"""
 
-
-		if type(resolution) != float:
-			res = 100
-		if type(wantTseries) != str:
+		# Set default values for signals not being used
+		if 'resolution' not in kwargs.keys():
+			resolution = 100
+		if 'wantTseries' not in kwargs.keys():
 			wantTseries='n'
-		if type(alpha) != float:
+		if 'alpha' not in kwargs.keys():
 			alpha = 0
-		if type(beta) != float:
+		if 'beta' not in kwargs.keys():
 			beta = 0
-		if type(T) != float:
+		if 'T' not in kwargs.keys():
 			T = 0
 
 		#specify parameters to be used in various signal scripts
 		modtype = modulation_type #create pointer with shorter character length
-		vsol = 232 # (km/s) mean solar speed around galaxy
-		vel_mod = float(self.modulate(modtype, timestamp)) #variation of experimental speed around mean solar speed
+		vsol = tf_lib.transformer().solar_vel_GalacticFrame() # (km/s) mean solar speed around galaxy
+		vel_mod = float(self.modulate(modtype, timestamp)) #variation of experimental apparatus speed around sun w.r.t. galactic center
 		h = Cnsts.h.value*6.242*10**18 # plancks constant in eV*s
 		m = axion_mass # axion mass in eV
 		bin_width = float(resolution) #size of bins in hZ
 		RMF = float(m/h) # Rest mass frequency in hZ
 		cutoffarea = 0.9
 
+		signal_cl = signal(self.__dict__)
 
 		#set default value for starting frequency
-		if type(startfreq) != float and type(startfreq) != int:
+		if 'startfreq' not in kwargs.keys():
 			startfreq = RMF
 
 		binsize = []
@@ -160,12 +116,12 @@ class modulation():
 		info = []
 		i=0
 
-
+		
 		#modulate specified axion shape based on input parameters
 		if shape_model == "axionDM_w_baryons":
 			while sumbins<cutoffarea:
 				scanfreq = float(startfreq + (i)*(bin_width/3))*10**(-6)
-				binsize.append(axionDM_w_baryons(vel_mod, vsol, m, scanfreq)*(bin_width/3))
+				binsize.append(signal_cl.axionDM_w_baryons(vel_mod, vsol, m, scanfreq)*(bin_width/3))
 				if ((i+1)/3) == np.floor((i+1)/3) and i>0:
 					binned_signal.append(binsize[int(i-2)] + binsize[int(i-1)] + binsize[int(i)])
 					sumbins = sumbins + binned_signal[int(i/3)]
@@ -177,7 +133,7 @@ class modulation():
 		elif shape_model == "SHM":
 			while sumbins<cutoffarea:
 				scanfreq = float(startfreq+(i)*(bin_width/3))*10**(-6)
-				binsize.append(SHM(scanfreq, m, vel_mod)*(bin_width/3))
+				binsize.append(signal_cl.SHM(scanfreq, m, vel_mod)*(bin_width/3))
 
 				if ((i+1)/3) == np.floor((i+1)/3) and i>0:
 					binned_signal.append(binsize[int(i-2)] + binsize[int(i-1)] + binsize[int(i)])
@@ -193,7 +149,7 @@ class modulation():
 			while sumbins<cutoffarea:
 				scanfreq = float(startfreq+(i)*(bin_width/3))*10**(-6)
 				modulatingfreq = ((scanfreq - RMF)*modf+RMF)
-				binsize.append(pCDM_only(m, modulatingfreq, vsol)*(bin_width/3))
+				binsize.append(signal_cl.pCDM_only(m, modulatingfreq, vsol)*(bin_width/3))
 
 				if ((i+1)/3) == np.floor((i+1)/3) and i>0:
 					binned_signal.append(binsize[int(i-2)] + binsize[int(i-1)] + binsize[int(i)])
@@ -208,7 +164,7 @@ class modulation():
 			while sumbins<cutoffarea:
 				scanfreq = float(startfreq+(i)*(bin_width/3))*10**(-6)
 				modulatingfreq = ((scanfreq - RMF)*modf+RMF)
-				binsize.append(pCDM_w_baryons(m, modulatingfreq, vsol)*(bin_width/3))
+				binsize.append(signal_cl.pCDM_w_baryons(m, modulatingfreq, vsol)*(bin_width/3))
 				if ((i+1)/3) == np.floor((i+1)/3) and i>0:
 					binned_signal.append(binsize[int(i-2)] + binsize[int(i-1)] + binsize[int(i)])
 					sumbins = sumbins + binned_signal[int(i/3)]
@@ -222,7 +178,7 @@ class modulation():
 			while sumbins<cutoffarea:
 				scanfreq = float(startfreq+(i)*(bin_width/3))*10**(-6)
 				modulatingfreq = ((scanfreq - RMF)*modf+RMF)
-				binsize.append(pCDM_maxwell_like_form(m, modulatingfreq, vel_mod, alpha, beta, T)*(bin_width/3))
+				binsize.append(signal_cl.pCDM_maxwell_like_form(m, modulatingfreq, vel_mod, alpha, beta, T)*(bin_width/3))
 
 				if ((i+1)/3) == np.floor((i+1)/3) and i>0:
 					binned_signal.append(binsize[int(i-2)] + binsize[int(i-1)] + binsize[int(i)])
@@ -237,7 +193,7 @@ class modulation():
 				modf = ((vsol+vel_mod)**2)/(vsol**2)
 				scanfreq = float(startfreq+(i)*(bin_width/3))*10**(-6)
 				modulatingfreq + ((scanfreq - RMF)*modf+RMF)
-				binsize.append(axionDM_only(m, modulatingfreq)*(bin_width/3))
+				binsize.append(signal_cl.axionDM_only(m, modulatingfreq)*(bin_width/3))
 
 				if ((i+1)/3) == np.floor((i+1)/3) and i>0:
 					binned_signal.append(binsize[int(i-2)] + binsize[int(i-1)] + binsize[int(i)])
