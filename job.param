@@ -1,0 +1,24 @@
+# parameter file
+# only lines with '#' will be read as comments
+# blank lines will be read, but produce trivial result by parsing function
+#NOTE: split() function is blind to spacing. Be sure not to put space between variable name and '=' sign.
+#current signal: SHM, axionDM_w_baryons, pCDM_only, pCDM_w_baryons, pCDM_maxwell_like_form, axionDM_only
+#current mod_types: "solar", "earth orbit", "earth rotation"
+signal='SHM'
+pec_vel='solar'
+filter='RCHPF'
+filter_params=[10,3]
+nbins=256
+
+pull_data='true'
+start_scan=516305
+end_scan=516309
+bad_scans="file path"
+
+scan_crit=""
+temp='alg1'
+stat_interp='chi2'
+parallel='GPU'
+
+#axion specific parameters
+axion_mass=0.000003 
