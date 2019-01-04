@@ -98,8 +98,9 @@ class signal(object):
 		m = RME/(c**2) #Mass of Axion in eV/c^2
 		E = freq*h*10**(6) #Energy of equivalent photon at input frequency in Hz
 		KE = E-RME #Kinetic energy of axion in eV
+		if KE<0:
+			KE=0 #Unphysical kinetic energy values caused by floating point error
 		rmfreq = (RME/h)*10**(-6) # Rest mass frequency of axion
-		print(KE, RME, "\n\n\n")
 		v = c*np.sqrt((2*KE)/RME) #velocity of axion
 		beta = 1/(2*(sigma_v**2)) #this is the beta from turner 1990
 

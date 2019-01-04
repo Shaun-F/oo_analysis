@@ -21,7 +21,6 @@ def calc_sys_temp(h5py_digitizer_dataset, h5py_axion_dataset, squid_temp_dataset
 	cavity_top_temp = float(axion_scan.attrs["cavity_bottom_temperature"])
 	T_cavity = (cavity_bottom_temp + cavity_top_temp)/2
 	timestamp = axion_scan.attrs["timestamp"]
-	
 	squid_temperature = float(squid_temp_dataset[...]) #This is the temperature of A4 in the RF chain.
         
 	fitted_func = power_fitter(dig_scan, axion_scan)

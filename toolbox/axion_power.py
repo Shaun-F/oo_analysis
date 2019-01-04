@@ -17,7 +17,7 @@ def axion_power(ch, scan_number, form_factor, axion_coupling, halo_density):
 	#get axion dataset
 	file = h5py.File('run1a_data', 'r')
 	scan = file["axion_log_run1a"][str(scan_number)]
-	if scan=="error"
+	if scan=="error":
 		return "error: Fault in axion dataset fetching"
 	
 	#extract relevent experimental parameters
