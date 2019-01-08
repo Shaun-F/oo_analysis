@@ -65,7 +65,7 @@ class core_analysis():
 		import signals
 		self.signal_dataset = signals.generate(self)
 		import analysis
-		self.analysis_dataset = analysis.grand_analysis(self)
+		self.analysis_dataset = analysis.grand_spectra(self)
 		#import MCMC
 		# perform MCMC analysis
 		#import analytics

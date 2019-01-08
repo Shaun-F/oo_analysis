@@ -28,14 +28,15 @@ def convolve_two_arrays(array1, array2):
 
 	
 	
-def MR_scan_analysis(scan_number, ch, res, modulation_type, axion_shape, notes):
-    
-	if not ch==2:
-		ch=1
-	file = h5py.File('run1a_data', 'r+')
-	axion_scan = file["axion_log_run1a"][str(scan_number)]
-	digitizer_scan = file["digitizer_log_run1a"][str(scan_number)]
-
+def MR_scan_analysis(scan,**params):
+	"""
+	Single scan analysis procedure.
+	scanparams = dig_dataset, res, notes
+	modparams = pec_vel, signal
+	"""
+	ch=1 #This is obsolete for 1A analysis, but was carried over from lua->python conversion.
+	
+	digitizer_scan = scan 
 	#Write exceptions here (reason not to include scans in Run1A)
 	fstart = digitizer_scan.attrs["start_frequency"]
 	fstop = digitizer_scan.attrs["stop_frequency"]
@@ -156,22 +157,23 @@ def MR_scan_analysis(scan_number, ch, res, modulation_type, axion_shape, notes):
 	power_deviation = np.append(axblank, np.append(power_deltas, axblank))
 
 
-	results = {'scan_id':scan_number,
-			   'nscans':nscans,
-			   'sigma_w':sigma_w,
-			   'optimal_weight_sum': optimal_weight_sum, #maximum likelihood numerator
-			   'SNR':SNR,
-			   'noise_power':noise_power,
-			   'weighted_deltas':weighted_deltas,
-			   'model_excess_sqrd':model_excess_sqrd, #maximum likelihood denominator
-			   'axion fit':A,
-			   'axion_fit_uncertainty':sigma_A,
-			   'axion_fit_significance':axion_fit_significance,
-			   'sensitivity_power':sensitivity_power,
-			   'sensitivity_coupling':sensitivity_coupling,
-			   'axion_frequencies':axion_rmfs,
-			   'power deviation':power_deviation
-			   }
+	results = {'deltas':deltas,
+				'scan_id':scan_number,
+				'nscans':nscans,
+				'sigma_w':sigma_w,
+				'optimal_weight_sum': optimal_weight_sum, #maximum likelihood numerator
+				'SNR':SNR,
+				'noise_power':noise_power,
+				'weighted_deltas':weighted_deltas,
+				'model_excess_sqrd':model_excess_sqrd, #maximum likelihood denominator
+				'axion fit':A,
+				'axion_fit_uncertainty':sigma_A,
+				'axion_fit_significance':axion_fit_significance,
+				'sensitivity_power':sensitivity_power,
+				'sensitivity_coupling':sensitivity_coupling,
+				'axion_frequencies':axion_rmfs,
+				'power deviation':power_deviation
+				}
 	return results
 
         

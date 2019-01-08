@@ -16,7 +16,7 @@ def generate(object):
 	sigkeys = ["signal", "axion_mass", "nbins"]       # take down signal keys, like signal type and params
 	sigparams = {key: getattr(object,key) for key in sigkeys}
 	
-	scankeys = ["start_scan", "end_scan", "scans", "timestamp", "fstart", "fstop", "Tsys"]     # take down keys for getting scan specific information, like scan number and central mass/frequency, timestep, etc
+	scankeys = ["start_scan", "end_scan", "dig_dataset", "timestamp", "fstart", "fstop", "Tsys"]     # take down keys for getting scan specific information, like scan number and central mass/frequency, timestep, etc
 	scanparams_dict =  {key: getattr(object, key) for key in scankeys}
 	scanparams = dict_to_object(**scanparams_dict)   # Change dictionary to object
 	

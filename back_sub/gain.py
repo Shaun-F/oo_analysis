@@ -10,7 +10,7 @@ import filters.backsub_filters_lib as bslib
 def execute(paramdict,datadict):
 	deltas = {}
 	# cyle though data
-	for key,scan in datadict['scans'].items(): # or whatever the key is
+	for key,scan in datadict['dig_dataset'].items(): # or whatever the key is
 		# get appropriate BS method (using RCHPF for placeholder)
 		window = paramdict["filter_params"][0]
 		copies = paramdict["filter_params"][1]

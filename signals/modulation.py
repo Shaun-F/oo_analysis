@@ -25,7 +25,7 @@ class modulation():
 		Function runs modulation routine 
 		"""
 		#Define default values
-		default_keys = ["pec_vel", "timestamp", "signal", "axion_mass", "scans"]
+		default_keys = ["pec_vel", "timestamp", "signal", "axion_mass", "dig_dataset"]
 		default = {key: getattr(self, key) for key in default_keys}
 		
 		#define secondary values
@@ -38,7 +38,7 @@ class modulation():
 		timestamps = default["timestamp"]
 		shape_model = default["signal"]
 		axion_mass = default["axion_mass"]
-		scans = default["scans"]
+		scans = default["dig_dataset"]
 		
 		signals = {}
 		for key in scans.keys():

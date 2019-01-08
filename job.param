@@ -4,6 +4,7 @@
 #NOTE: split() function is blind to spacing. Be sure not to put space between variable name and '=' sign.
 #current signal: SHM, axionDM_w_baryons, pCDM_only, pCDM_w_baryons, pCDM_maxwell_like_form, axionDM_only
 #current mod_types: "solar", "earth orbit", "earth rotation"
+#Resolution types: HR, MR, LR
 
 signal='SHM'
 pec_vel='earth rotation'
@@ -15,6 +16,7 @@ pull_data='true'
 start_scan=516306
 end_scan=516309
 bad_scans="file path"
+restype = "MR"
 
 scan_crit=""
 temp='alg1'

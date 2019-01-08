@@ -18,11 +18,7 @@ def BS(object):
 	attributes = dir(object)
 	bskeys = ["filter", "filter_params", "parallel", "signal", "pec_vel"] # take down basic keys, like filter type and parameters
 	bsparams = {key: getattr(object,key) for key in bskeys}
-	datakeys = ["pull_data", "start_scan", "end_scan", "bad_scans", "temp", 'scans']# take down data keys
-	if object.pull_data == 'false':
-		pass
-	elif object.pull_data == 'true':
-		pulldata(object) #pull data from file and attach to object
+	datakeys = ["pull_data", "start_scan", "end_scan", "bad_scans", "temp", 'dig_dataset']# take down data keys
 	bsdata = {key: getattr(object,key) for key in datakeys}
 	# run routine
 	deltas = gain.execute(bsparams,bsdata)

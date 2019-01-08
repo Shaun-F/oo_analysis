@@ -5,13 +5,20 @@ Created by: Erik Lentz
 """
 import sys
 sys.path.append("..")
-from analysis.MR_scan_analysis import MR_scan_analysis as ana
+import analysis.MR_scan_analysis
+from analysis.MR_scan_analysis import MR_scan_analysis
 
-# handle the background-subtracted data
+# handle the background-subtracted data\
 
-# handle the signals data
-
-# calculate chi^2 statistics using summation and convolution packages
-
-# calculate pertinant statistics
- # store results
+def analysis(scan, **params):
+	if restype == "HR":
+		pass
+		#Run high resolution analysis routine
+		
+	if restype == "MR":
+		return MR_scan_analysis(scan, **params)
+		
+	if restype == "LR":
+		pass
+		#Run low resolution analysis routine
+	
