@@ -19,14 +19,16 @@ class transformer():
 		
 		cenpa_ITRS = coord.ITRS(cenpa_location_xyz.x, cenpa_location_xyz.y, cenpa_location_xyz.z, representation_type = coord.CartesianRepresentation, v_x=0*(u.km/u.s), v_y=0*(u.km/u.s), v_z=0*(u.km/u.s), differential_type = coord.CartesianDifferential, obstime=time)
 		
-		cenpa_Galactic = cenpa_ITRS.transform_to(coord.Galactic)
-		cenpa_velocity = cenpa_Galactic.velocity
-		gvel_sun = coord.Galactocentric().galcen_v_sun
+		cenpa_Galactic_centered = cenpa_ITRS.transform_to(coord.Galactocentric)
 		
-		cenpa_vel_delta_vectored = (cenpa_velocity + gvel_sun)
-		cenpa_vel_delta = cenpa_vel_delta_vectored.norm() - gvel_sun.norm()
+		#get tangential velocity
+		x = cenpa_Galactic_centered.x.value
+		y = cenpa_Galactic_centered.y.value
+		vx = cenpa_Galactic_centered.v_x.value
+		vy = cenpa_Galactic_centered.v_y.value
 		
-		return cenpa_vel_delta.value
+		cenpa_tangential_velocity = (y*vx - x*vy)/(np.sqrt(x**2 + y**2)) + np.arctan(y/x)*(x*vx + y*vy)/(np.sqrt(x**2 + y**2))
+		return cenpa_tangential_velocity #Tangential velocity to galactic center
 		
 		
 	def earth_posvel_ICRS(self, timestamp):
@@ -47,13 +49,15 @@ class transformer():
 		time = astropy.time.Time(parse(timestamp))
 		pos, vel = self.earth_posvel_ICRS(timestamp)
 		
-		gvel = coord.ICRS(x = pos.x.value*u.km, y = pos.y.value*u.km, z = pos.z.value*u.km,v_x = vel.x.value*u.km/u.s, v_y = vel.y.value*u.km/u.s, v_z = vel.z.value*u.km/u.s,representation_type = coord.CartesianRepresentation,differential_type = coord.CartesianDifferential).transform_to(coord.Galactic).velocity
-		gvel_sun = coord.Galactocentric().galcen_v_sun
+		gvel = coord.ICRS(x = pos.x.value*u.km, y = pos.y.value*u.km, z = pos.z.value*u.km,v_x = vel.x.value*u.km/u.s, v_y = vel.y.value*u.km/u.s, v_z = vel.z.value*u.km/u.s,representation_type = coord.CartesianRepresentation,differential_type = coord.CartesianDifferential).transform_to(coord.Galactocentric)
 		
-		gvel_GalacticIntertialFrame = gvel_sun + vel
-		gvel_GalacticIntertialFrame_delta = gvel_GalacticIntertialFrame.norm() - gvel_sun.norm()
+		x = gvel.x.value
+		y = gvel.y.value
+		vx = gvel.v_x.value
+		vy = gvel.v_y.value
 		
-		return gvel_GalacticIntertialFrame_delta.value
+		earth_tangential_velocity = (y*vx - x*vy)/(np.sqrt(x**2 + y**2)) + np.arctan(y/x)*(x*vx + y*vy)/(np.sqrt(x**2 + y**2))
+		return earth_tangential_velocity
 		
 	def solar_vel_GalacticFrame(self):
 		return coord.Galactocentric().galcen_v_sun.norm().value
