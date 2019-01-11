@@ -70,7 +70,7 @@ class core_analysis():
 		# perform MCMC analysis
 		#import analytics
 		# generate plots
-		self.output()
+		#self.output()
 		return None
 
 

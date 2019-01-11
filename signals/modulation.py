@@ -83,14 +83,24 @@ class modulation():
 		# Set default values for signals not being used
 		if 'resolution' not in kwargs.keys():
 			resolution = 100
+		else: 
+			resolution = kwargs["resolution"]
 		if 'wantTseries' not in kwargs.keys():
 			wantTseries='n'
+		else:
+			wantTseries = kwargs["wantTseries"]
 		if 'alpha' not in kwargs.keys():
 			alpha = 0
+		else:
+			alpha = kwargs["alpha"]
 		if 'beta' not in kwargs.keys():
 			beta = 0
+		else:
+			beta = kwargs["beta"]
 		if 'T' not in kwargs.keys():
 			T = 0
+		else:
+			T = kwargs["T"]
 
 		#specify parameters to be used in various signal scripts
 		modtype = modulation_type #create pointer with shorter character length

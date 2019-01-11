@@ -11,14 +11,14 @@ from analysis.MR_scan_analysis import MR_scan_analysis
 # handle the background-subtracted data\
 
 def analysis(scan, **params):
-	if restype == "HR":
+	if params['restype'] == "HR":
 		pass
 		#Run high resolution analysis routine
 		
-	if restype == "MR":
+	if params['restype'] == "MR":
 		return MR_scan_analysis(scan, **params)
 		
-	if restype == "LR":
+	if params['restype'] == "LR":
 		pass
 		#Run low resolution analysis routine
 	

@@ -16,7 +16,7 @@ pull_data='true'
 start_scan=516306
 end_scan=516309
 bad_scans="file path"
-restype = "MR"
+restype="MR"
 
 scan_crit=""
 temp='alg1'

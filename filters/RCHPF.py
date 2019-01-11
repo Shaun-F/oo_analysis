@@ -152,7 +152,7 @@ def reciprocated_clone_hpf(data, npairs):
 	elif teller>0:
 		return (print("\n\n\nERROR: Returned signal of RCHPF should be real\n\n\n"), print(filtereddata), print(sigma))
 	"""
-	return {"filtereddata":filtereddata, "sigma": sigma, "number of clones": NumberOfClonePairs}
+	return {"filtereddata":filtereddata, "sigma": sigma, "number of clones": npairs}
 
 def sixorderpoly(signal):
         domain = np.arange(len(signal))
