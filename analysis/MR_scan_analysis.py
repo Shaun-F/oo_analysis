@@ -169,9 +169,7 @@ def MR_scan_analysis(scan,**params):
 	nscans = np.append(axblank, np.append(nscans,axblank))
 	SNR = np.append(axblank, np.append(SNR, axblank))
 	noise_power = np.append(axblank, np.append(noise_power, axblank))
-	#weighted_deltas = np.append(axblank, np.append(weighted_deltas, axblank))
-	power_deviation = np.append(axblank, np.append(power_deltas, axblank))
-
+	power_deviation = np.append(axblank, np.append(power_deltas, axblank)) #weighted_deltas
 
 	results = {'deltas':deltas,
 				'scan_id':scan_number,
@@ -187,7 +185,8 @@ def MR_scan_analysis(scan,**params):
 				'sensitivity_power':sensitivity_power,
 				'sensitivity_coupling':sensitivity_coupling,
 				'axion_frequencies':axion_rmfs,
-				'power deviation':power_deviation
+				'power deviation':power_deviation,
+				'sigma':sigma
 				}
 	return results
 

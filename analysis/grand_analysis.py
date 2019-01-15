@@ -43,11 +43,31 @@ class analyser(object):
 			Tsys = {'Tsys': self.Tsys[key]}
 			scan_num = {'scan_number':key}
 			axion_scan = {'axion_scan': self.axion_dataset[key]}
+			
 			params = {**scanparams, **modparams, **Tsys, **scan_num, **axion_scan}
 			
 			self.analysis_results[key] =  analysis(scan, **params)
-		#Make cuts on data
-		#add remaining scan to grand_spectra via coaddition
+
+			#cycle over scans and Make cuts on data
+			#if deltas dispersion is factor of 3 larger than radiometer equation, cut it.
+			#Radiometer dispersion: Tsys/root(B*t) B==bandwidth, t==integration time
+			scan = self.dig_dataset[key]
+			int_time = 100.0026931 #second             #should probably pull this from scan parameters
+			bandwidth = float(scan.attrs["frequency_resolution"])*10**6 #Hz
+			Tsys = self.Tsys[key]
+			
+			radiometer_dispersion = Tsys/((bandwidth*int_time)**(0.5))
+			scan_dispersion = self.analysis_results[key]["sigma"]
+			
+			cut = False
+			cut_reason = ""
+			if scan_dispersion>3*radiometer_dispersion:
+				cut = True
+				cut_reason = "Dispersion compared to radiometer dispersion. To large"
+				scan.attrs["cut"] = cut
+				scan.attrs["cut_reason"] = cut_reason
+		
+			#add remaining scan to grand_spectra via coaddition
 		
 		
 

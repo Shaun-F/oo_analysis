@@ -7,8 +7,9 @@ from scipy.signal import savgol_filter as SGfilter
 import pyopencl as cl
 import reikna.cluda as cluda
 from reikna.fft import FFT as fftcl
+import os
 
-
+os.environ["PYOPENCL_COMPILER_OUTPUT"] = "1"
 ####################################
 savedir = "C:/Users/drums/Documents/ADMX/Papers/Own Papers/Plots and Graphics/Bsub/MyBSub/"
 ####################################
@@ -40,7 +41,6 @@ stop = start + nbins*df
 bins = [start + df*i for i in range(nbins)]
 
 def DFT(inputsignal):
-    
     signal = np.array(inputsignal, dtype = np.complex128)
     device = cl.get_platforms()[1].get_devices(device_type=cl.device_type.GPU)
     ctx = cl.Context(device)
@@ -48,7 +48,6 @@ def DFT(inputsignal):
     
     api = cluda.ocl_api()
     thr = api.Thread(queue)
-    
     signal_dev = thr.to_device(signal)
     fft_res_dev = thr.array(signal.shape, dtype = np.complex128)
     
