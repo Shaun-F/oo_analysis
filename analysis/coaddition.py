@@ -31,20 +31,22 @@ class scan(object):
 		self.scan_axion_frequencies = scan["axion_frequencies"]
 		self.scan_power_deviation = scan["power_deviation"]
 		
-		self.chunk_scan_number = chunk["scans"]
-		self.chunk_nscans = chunk["nscans"]
-		self.chunk_sigma_w = chunk["data"]["sigma_w"]
-		self.chunk_optimal_weight_sum = chunk["data"]["optimal_weight_sum"]
-		self.chunk_SNR = chunk["data"]["SNR"]
-		self.chunk_noise_power = chunk["data"]["noise_power"]
-		self.chunk_weighted_deltas = chunk["data"]["weighted_deltas"]
-		self.chunk_model_excess_sqrd = chunk["data"]["model_excess_sqrd"]
-		self.chunk_axion_fit = chunk["data"]["axion_fit"]
-		self.chunk_axion_fit_uncertainty = chunk["data"]["axion_fit_uncertainty"]
-		self.chunk_sensitivity_power = chunk["data"]["sensitivity_power"]
-		self.chunk_sensitivity_coupling = chunk["data"]["sensitivity_coupling"]
-		self.chunk_axion_frequencies = chunk["data"]["axion_frequencies"]
-		self.chunk_power_deviation = chunk["data"]["power_deviation"]
+		chunk = initialization(chunk) #Initialize any attributes not previously defined
+		
+		self.chunk_scan_number = chunk.attrs["scans"]
+		self.chunk_nscans = chunk.attrs["nscans"]
+		self.chunk_sigma_w = chunk.attrs["sigma_w"]
+		self.chunk_optimal_weight_sum = chunk.attrs["optimal_weight_sum"]
+		self.chunk_SNR = chunk.attrs["SNR"]
+		self.chunk_noise_power = chunk.attrs["noise_power"]
+		self.chunk_weighted_deltas = chunk.attrs["weighted_deltas"]
+		self.chunk_model_excess_sqrd = chunk.attrs["model_excess_sqrd"]
+		self.chunk_axion_fit = chunk.attrs["axion_fit"]
+		self.chunk_axion_fit_uncertainty = chunk.attrs["axion_fit_uncertainty"]
+		self.chunk_sensitivity_power = chunk.attrs["sensitivity_power"]
+		self.chunk_sensitivity_coupling = chunk.attrs["sensitivity_coupling"]
+		self.chunk_axion_frequencies = chunk.attrs["axion_frequencies"]
+		self.chunk_power_deviation = chunk.attrs["power_deviation"]
 	
 	
 	def frequency_index_matcher(self):
@@ -221,37 +223,53 @@ class scan(object):
 		
 		
 def initialization(chunk):
-	if not chunk["data"]["scans"]:
-		chunk["data"]["scans"] = []
-	if not chunk["data"]["sigma_w"]:
-		chunk["data"]["sigma_w"] = []
-	if not chunk["data"]["optimal_weight_sum"]:
-		chunk["data"]["optimal_weight_sum"] = []
-	if not chunk["data"]["SNR"]:
-		chunk["data"]["SNR"] = []
-	if not chunk["data"]["noise_power"]:
-		chunk["data"]["noise_power"] = []
-	if not chunk["data"]["weighted_deltas"]:
-		chunk["data"]["weighted_deltas"] = []
-	if not chunk["data"]["model_excess_sqrd"]:
-		chunk["data"]["model_excess_sqrd"] = []
-	if not chunk["data"]["axion_fit"]:
-		chunk["data"]["axion_fit"] = []
-	if not chunk["data"]["axion_fit_uncertainty"]:
-		chunk["data"]["axion_fit_uncertainty"] = []
-	if not chunk["data"]["sensitivity_power"]:
-		chunk["data"]["sensitivity_power"] = []
-	if not chunk["data"]["sensitivity_coupling"]:
-		chunk["data"]["sensitivity_coupling"] = []
-	if not chunk["data"]["axion_frequencies"]:
-		chunk["data"]["axion_frequencies"] = []
-	if not chunk["data"]["power_deviation"]:
-		chunk["data"]["power_deviation"] = []
+
+	if 'scans' not in chunk.attrs:
+		chunk.attrs['scans'] = []
+		
+	if 'sigma_w' not in chunk.attrs:
+		chunk.attrs['sigma_w'] = []
+		
+	if 'optimal_weight_sum' not in chunk.attrs:
+		chunk.attrs['optimal_weight_sum']=[]
+		
+	if 'SNR' not in chunk.attrs:
+		chunk.attrs['SNR'] = []
+		
+	if 'noise_power' not in chunk.attrs:
+		chunk.attrs['noise_power'] = []
+		
+	if 'model_excess_sqrd' not in chunk.attrs:
+		chunk.attrs['model_excess_sqrd'] = []
+		
+	if 'axion_fit' not in chunk.attrs:
+		chunk.attrs['axion_fit'] = []
+		
+	if 'axion_fit_uncertainty' not in chunk.attrs:
+		chunk.attrs['axion_fit_uncertainty'] = []
+		
+	if 'sensitivity_power' not in chunk.attrs:
+		chunk.attrs['sensitivity_power'] = []
+		
+	if 'sensitivity_coupling' not in chunk.attrs:
+		chunk.attrs['sensitivity_coupling'] = []
+		
+	if 'axion_frequencies' not in chunk.attrs:
+		chunk.attrs['axion_frequencies'] = []
+		
+	if 'power_deviation' not in chunk.attrs:
+		chunk.attrs["power_deviation"] = []
 	return chunk
 		
 
-def add_subtract_scan(add_subtract, scan, chunk, scid):
-	
+def add_subtract_scan(add_subtract, scan, chunk, scan_id):
+	"""
+	Parameters
+		add_subtract: ('add', 'subtract') Determines what to do with scan
+		scan: (dictionary) items to add to grand spectra, including deltas
+		chunk: (h5py dataset) dataset to add to.
+		scan_id: (
+	"""
 	#initialize scan object	
 	if add_subtract == "add":
 		op = "+"
@@ -259,10 +277,10 @@ def add_subtract_scan(add_subtract, scan, chunk, scid):
 		op = "-"
 	else:
 		return "Error: combining operation not recognized. Available operations are 'add' and 'subtract'"
-	scan_obj = scan(scan=scan, scid = scid, chunk=chunk, op="+")
+	scan_obj = scan(scan=scan, scid = scan_id, chunk=chunk, op="+")
 	
-	#Running initiliazation procedure for chunks
-	chunk = initialization(chunk)
+	#Running initiliazation procedure for chunks, i.e. create missing arrays.
+	#chunk = initialization(chunk) 									Not currently using.
 	
 	if op=="+" and scan_id in chunk["scans_in"]:
 		phrase = "scan " + str(scan_id) + " already added"
@@ -277,30 +295,30 @@ def add_subtract_scan(add_subtract, scan, chunk, scid):
 		op = nil
 	
 	if not corrupt_scan:
-		chunk["data"]["nscans"] = scan_obj.nscan_consolidation(chunk,op,scan)
-		chunk["data"]["SNR"] = scan_obj.SNR_consolidation(chunk,op,scan)
-		chunk["data"]["optimal_weight_sum"] = scan_obj.optimal_weight_sum_consolidation(chunk,op,scan)
-		chunk["data"]["noise_power"] = scan_obj.noise_power_consolidation(chunk, op, scan)
-		chunk["data"]["model_excess_sqrd"] = scan_obj.model_excess_sqrt_consolidation(chunk, op, scan)
-		chunk["data"]["axion_fit_uncertainty"] = scan_obj.sigma_A_consolidation(chunk, op, scan)
-		chunk["data"]["axion_fit"] = scan_obj.axion_fit_consolidation(chunk, op, scan)
-		chunk["data"]["power_deviation"] = scan_obj.power_devication_consolidation(chunk, op, scan)
-		chunk["data"]["axion_fit_significance"] = scan_obj.axion_fit_significance_consolidation(chunk, op, scan)
-		chunk["data"]["sensitivity_coupling"] = scan_obj.coupling_sensitivity_consolidation(chunk, op, scan)
-		chunk["data"]["sensitivity_power"] = scan_obj.power_senstivity_consolidation(chunk, op, scan)
+		chunk.attrs["nscans"] = scan_obj.nscan_consolidation(chunk,op,scan)
+		chunk.attrs["SNR"] = scan_obj.SNR_consolidation(chunk,op,scan)
+		chunk.attrs["optimal_weight_sum"] = scan_obj.optimal_weight_sum_consolidation(chunk,op,scan)
+		chunk.attrs["noise_power"] = scan_obj.noise_power_consolidation(chunk, op, scan)
+		chunk.attrs["model_excess_sqrd"] = scan_obj.model_excess_sqrt_consolidation(chunk, op, scan)
+		chunk.attrs["axion_fit_uncertainty"] = scan_obj.sigma_A_consolidation(chunk, op, scan)
+		chunk.attrs["axion_fit"] = scan_obj.axion_fit_consolidation(chunk, op, scan)
+		chunk.attrs["power_deviation"] = scan_obj.power_devication_consolidation(chunk, op, scan)
+		chunk.attrs["axion_fit_significance"] = scan_obj.axion_fit_significance_consolidation(chunk, op, scan)
+		chunk.attrs["sensitivity_coupling"] = scan_obj.coupling_sensitivity_consolidation(chunk, op, scan)
+		chunk.attrs["sensitivity_power"] = scan_obj.power_senstivity_consolidation(chunk, op, scan)
 	
-	chunk["scans"].append(scan_id)
+	chunk.attrs["scans"].append(scan_id)
 	
 	if add_subtract=='add':
-		chunk["scans_id"].append(scan_id)
-		for i, chunk_scan_id in enumerate(chunk["scans_out"]):
+		chunk.attrs["scans_id"].append(scan_id)
+		for i, chunk_scan_id in enumerate(chunk.attrs["scans_out"]):
 			if scan_id == chunk_scan_id:
-				chunk["scans_out"][i]=nil
+				chunk.attrs["scans_out"][i]=nil
 	elif add_subtract=="subtract":
-		chunk["scans_out"].append(scan_id)
-		for i, chunk_scan_id in enumerate(chunk["scans_in"]):
+		chunk.attrs["scans_out"].append(scan_id)
+		for i, chunk_scan_id in enumerate(chunk.attrs["scans_in"]):
 			if scan_id == chunk_scan_id:
-				chunk["scans_id"][i] = nil
+				chunk.attrs["scans_id"][i] = nil
 	
 	lastcalc = dt.datetime.now()
 	lastcalc = lastcalc.strftime('%Y-%m-%d %H:%M:%S')

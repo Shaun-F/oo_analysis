@@ -6,7 +6,7 @@ Created By: Erik Lentz
 import sys
 sys.path.append("..")
 import analysis.scan_analysis 
-import analysis.coaddition
+import analysis.coaddition; from analysis.coaddition import add_subtract_scan
 import h5py
 from analysis.scan_analysis import analysis
 # add scan results to grand spectra
@@ -68,7 +68,12 @@ class analyser(object):
 				scan.attrs["cut_reason"] = cut_reason
 		
 			#add remaining scan to grand_spectra via coaddition
-		
+			if scan.attrs['cut'] == False:
+				add_subtract_scan('add', self.analysis.results[key], self.grand_spectra, key)
+			elif scan.attrs['cut'] == True:
+				add_subtract_scan('subtract', self.analysis.results[key], self.grand_spectra, key)
+				
+		return self.grand_spectra
 		
 
 

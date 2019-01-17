@@ -105,7 +105,7 @@ def MR_scan_analysis(scan,**params):
 	power_deltas = BkT*deltas
 	trans_power_deltas = cav_trans_mod*power_deltas
 	variance_w = sigma_w**2
-	nscans = lorentzian
+	nscans = lorentzian_profile
 	noise_power = sigma_w
 	SNR = axion_power_excess_watts/sigma_w
 

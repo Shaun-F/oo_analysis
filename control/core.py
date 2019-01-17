@@ -78,7 +78,7 @@ class core_analysis():
 	def output(self):
 		# outputs data to local "./output/" directory
 		import data_management
-		data_management.write_out(self.analysis_dataset,"./output/grand_spectra.dat")
+		data_management.write_out(self.analysis_dataset,"../output/grand_spectra.dat")
 		return None
 
 	def collect_bad_scans(self):
