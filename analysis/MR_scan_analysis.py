@@ -179,13 +179,13 @@ def MR_scan_analysis(scan,**params):
 				'SNR':SNR,
 				'noise_power':noise_power,
 				'model_excess_sqrd':model_excess_sqrd, #maximum likelihood denominator
-				'axion fit':A,
+				'axion_fit':A,
 				'axion_fit_uncertainty':sigma_A,
 				'axion_fit_significance':axion_fit_significance,
 				'sensitivity_power':sensitivity_power,
 				'sensitivity_coupling':sensitivity_coupling,
-				'axion_frequencies':axion_rmfs,
-				'power deviation':power_deviation,
+				'axion_frequencies':axion_rmfs, #in Hz
+				'power_deviation':power_deviation,
 				'sigma':sigma
 				}
 	return results

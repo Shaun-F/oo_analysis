@@ -69,9 +69,9 @@ class analyser(object):
 		
 			#add remaining scan to grand_spectra via coaddition
 			if scan.attrs['cut'] == False:
-				add_subtract_scan('add', self.analysis.results[key], self.grand_spectra, key)
+				add_subtract_scan('add', self.analysis_results[key], self.grand_spectra, key)
 			elif scan.attrs['cut'] == True:
-				add_subtract_scan('subtract', self.analysis.results[key], self.grand_spectra, key)
+				add_subtract_scan('subtract', self.analysis_results[key], self.grand_spectra, key)
 				
 		return self.grand_spectra
 		
