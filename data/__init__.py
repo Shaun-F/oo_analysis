@@ -14,7 +14,7 @@ def input(parameters):
 	stop = int(parameters['end_scan'])
 	# gets intput data
 	import h5py
-	data = h5py.File(u"../data/raw/run1a_data.hdf5", "r+")
+	data = h5py.File(b"../data/raw/run1a_data.hdf5", "r+")
 	dig_dataset = {}
 	axion_dataset = {}
 	squid_dataset = {}

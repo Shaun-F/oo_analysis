@@ -82,7 +82,7 @@ class scan_cl(object):
 					#do nothing
 					pass
 				elif float(sfreqs[sidx]-cfreqs[sidx-si])<=tol:
-					np.insert(two_indices, [idx-si+1,idx])
+					np.insert(two_indices, [sidx-si,sidx])
 		elif ci!=None:
 			for sidx in np.arange(len(sfreqs)):
 				if (cfreqs.index(cfreqs[-1])-ci-sidx)<0:
@@ -91,7 +91,7 @@ class scan_cl(object):
 					#do nothing
 					pass
 				elif np.abs(sfreqs[sidx] - cfreqs[sidx+ci])<=tol:
-					np.insert(two_indices, [idx, idx-ci+1])
+					np.insert(two_indices, [sidx+ci, sidx])
 		else:
 			return "Error: frequencies of scan and chunk do not match"
 		return two_indices
@@ -108,7 +108,7 @@ class scan_cl(object):
 		AFS = AF/sigma_A
 		return AFS
 	
-	def coupling_senstivity_consolidation(self):
+	def coupling_sensitivity_consolidation(self):
 		csensitivity = self.chunk_sensitivity_coupling
 		ssensitivity = self.scan_sensitivity_coupling
 		matching_indices = self.frequency_index_matcher()
@@ -116,10 +116,10 @@ class scan_cl(object):
 			cidx = indices[0]
 			sidx = indices[1]
 			if self.op =="+":
-				sensitivity[cidx] = (1/csensitivity[cidx]**4 + 1/ssensitivity[sidx]**4)**(-0.25)
+				csensitivity[cidx] = (1/csensitivity[cidx]**4 + 1/ssensitivity[sidx]**4)**(-0.25)
 			else:
-				sensitivity[cidx] = (1/csensitivity[cidx]**4 - 1/ssensitivity[sidx]**4)**(-0.25)
-		return sensitivity
+				csensitivity[cidx] = (1/csensitivity[cidx]**4 - 1/ssensitivity[sidx]**4)**(-0.25)
+		return csensitivity
 	
 	def maximum_likelihood_uncertainty_consolidation(self):
 		matching_indices = self.frequency_index_matcher()
@@ -157,13 +157,13 @@ class scan_cl(object):
 	
 	def nscan_consolidation(self):
 		matching_indices = self.frequency_index_matcher()
-		nscan=self.chunk_nscans
+		nscans=self.chunk_nscans
 		scan_nscan=self.scan_nscans
 		for i, val in enumerate(matching_indices):
 			cidx = indices[0]
 			sidx = indices[1]
 			if self.op=="+":
-				nscan[cidx] = nscans[cidx] + scan_nscans[sidx]
+				nscans[cidx] = nscans[cidx] + scan_nscans[sidx]
 			else:
 				nscans[cidx] = nscans[cidx] - scan_nscans[sidx]
 		return nscans
@@ -251,7 +251,7 @@ class scan_cl(object):
 def initialization(chunk, scan):
 
 	if 'scans' not in chunk.attrs:
-		chunk.attrs['scans'] = []
+		chunk.attrs['scans'] = np.asarray([], dtype='byte') #array of scan id strings
 		
 	if 'sigma_w' not in chunk.attrs:
 		chunk.attrs['sigma_w'] = []
@@ -290,10 +290,13 @@ def initialization(chunk, scan):
 		chunk.attrs['nscans'] = []
 		
 	if 'scans_in' not in chunk.attrs:
-		chunk.attrs['scans_in'] = []
+		chunk.attrs['scans_in'] = np.asarray([], dtype='byte') #array of scan id strings in grand spectra
 		
 	if 'scans_out' not in chunk.attrs:
-		chunk.attrs['scans_out'] = []
+		chunk.attrs['scans_out'] = np.asarray([], dtype='byte') #array of scan id strings not in grand spectra
+		
+	if 'last_change' not in chunk.attrs:
+		chunk.attrs['last_change'] = np.asarray([], dtype='byte') #array of timestamp strings
 	return chunk
 		
 
@@ -333,30 +336,29 @@ def add_subtract_scan(add_subtract, scan, chunk, scan_id):
 	if not corrupt_scan:
 		chunk.attrs["nscans"] = scan_obj.nscan_consolidation()
 		chunk.attrs["SNR"] = scan_obj.SNR_consolidation()
-		chunk.attrs["optimal_weight_sum"] = scan_obj.optimal_weight_sum_consolidation(chunk,op,scan)
-		chunk.attrs["noise_power"] = scan_obj.noise_power_consolidation(chunk, op, scan)
-		chunk.attrs["model_excess_sqrd"] = scan_obj.model_excess_sqrt_consolidation(chunk, op, scan)
-		chunk.attrs["axion_fit_uncertainty"] = scan_obj.sigma_A_consolidation(chunk, op, scan)
-		chunk.attrs["axion_fit"] = scan_obj.axion_fit_consolidation(chunk, op, scan)
-		chunk.attrs["power_deviation"] = scan_obj.power_devication_consolidation(chunk, op, scan)
-		chunk.attrs["axion_fit_significance"] = scan_obj.axion_fit_significance_consolidation(chunk, op, scan)
-		chunk.attrs["sensitivity_coupling"] = scan_obj.coupling_sensitivity_consolidation(chunk, op, scan)
-		chunk.attrs["sensitivity_power"] = scan_obj.power_senstivity_consolidation(chunk, op, scan)
-	
-	chunk.attrs["scans"].append(scan_id)
+		chunk.attrs["optimal_weight_sum"] = scan_obj.optimal_weight_sum_consolidation()
+		chunk.attrs["noise_power"] = scan_obj.noise_power_consolidation()
+		chunk.attrs["model_excess_sqrd"] = scan_obj.model_excess_sqrd_consolidation()
+		chunk.attrs["axion_fit_uncertainty"] = scan_obj.sigma_A_consolidation()
+		chunk.attrs["axion_fit"] = scan_obj.axion_fit_consolidation()
+		chunk.attrs["power_deviation"] = scan_obj.weighted_delta_consolidation()
+		chunk.attrs["axion_fit_significance"] = scan_obj.axion_fit_significance_consolidation()
+		chunk.attrs["sensitivity_coupling"] = scan_obj.coupling_sensitivity_consolidation()
+		chunk.attrs["sensitivity_power"] = scan_obj.power_senstivity_consolidation()
+	chunk.attrs["scans"] = np.append(chunk.attrs["scans"], scan_id).astype('S')
 	
 	if add_subtract=='add':
-		chunk.attrs["scans_id"].append(scan_id)
+		chunk.attrs["scans_in"] = np.append(chunk.attrs["scans_in"],scan_id).astype('S')
 		for i, chunk_scan_id in enumerate(chunk.attrs["scans_out"]):
 			if scan_id == chunk_scan_id:
 				chunk.attrs["scans_out"][i]=nil
 	elif add_subtract=="subtract":
-		chunk.attrs["scans_out"].append(scan_id)
+		chunk.attrs["scans_out"] = np.append(chunk.attrs["scans_out"],scan_id).astype('S')
 		for i, chunk_scan_id in enumerate(chunk.attrs["scans_in"]):
 			if scan_id == chunk_scan_id:
 				chunk.attrs["scans_id"][i] = nil
 	
 	lastcalc = dt.datetime.now()
 	lastcalc = lastcalc.strftime('%Y-%m-%d %H:%M:%S')
-	chunk["last_change"] = lastcalc
+	chunk.attrs["last_change"] = str(lastcalc)
 	

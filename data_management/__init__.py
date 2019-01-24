@@ -11,30 +11,30 @@ def write_out(dataset,path):
 	"""
 	Function takes in a dataset, a file path and writes both the data and attributes to the file via serialization
 	"""
-    #data = h5py.File(path, 'w')
-    # use write functioins to put grand spectra to file
+	#data = h5py.File(path, 'w')
+	# use write functioins to put grand spectra to file
 	data = dataset[...]
 	attributes = {key: dataset.attrs[key] for key in dataset.attrs}
-	
+
 	output_file = open(path, 'wb')
 	pickle.dump(data, output_file)
 	pickle.dump(attributes, output_file)
-	
+
 	output_file.close()
-    return None
+	return None
 	
 def read_file(file):
 	"""
 	De-serialize a file and read
 	"""
 	input = open(file, 'rb')
-	
-	output
-	
+
+	output = []
+
 	while True:
 		try:
-			output.append(pickle.load(output))
+			output.append(pickle.load(input))
 		except EOFError:
 			break
-	
+
 	return output

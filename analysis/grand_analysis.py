@@ -59,6 +59,7 @@ class analyser(object):
 			radiometer_dispersion = Tsys/((bandwidth*int_time)**(0.5))
 			scan_dispersion = self.analysis_results[key]["sigma"]
 			
+			
 			cut = False
 			cut_reason = ""
 			if scan_dispersion>3*radiometer_dispersion:
@@ -72,7 +73,6 @@ class analyser(object):
 				add_subtract_scan('add', self.analysis_results[key], self.grand_spectra, key)
 			elif scan.attrs['cut'] == True:
 				add_subtract_scan('subtract', self.analysis_results[key], self.grand_spectra, key)
-				
 		return self.grand_spectra
 		
 

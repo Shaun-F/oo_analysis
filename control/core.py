@@ -70,7 +70,8 @@ class core_analysis():
 		# perform MCMC analysis
 		#import analytics
 		# generate plots
-		#self.output()
+		self.output()
+		self.h5py_file.close() #Close the file, saving the changes.
 		return None
 
 
@@ -80,12 +81,12 @@ class core_analysis():
 		import data_management
 		data_management.write_out(self.analysis_dataset,"../output/grand_spectra.dat")
 		return None
-
+		
 	def collect_bad_scans(self):
-        # runs through bad scan critereon and removes bad scans
-        # collecting metadata for later analysis
-        # may want to set up to run through only one or a set of conditions
-        # should also try to make dynamics so that it only tries new conditions
+		# runs through bad scan critereon and removes bad scans
+		# collecting metadata for later analysis
+		# may want to set up to run through only one or a set of conditions
+		# should also try to make dynamics so that it only tries new conditions
 		for key,value in self.dig_dataset.items(): # python 3.x
 			cut = False
 			cut_reason = ""
