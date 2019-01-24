@@ -341,7 +341,7 @@ def add_subtract_scan(add_subtract, scan, chunk, scan_id):
 		chunk.attrs["model_excess_sqrd"] = scan_obj.model_excess_sqrd_consolidation()
 		chunk.attrs["axion_fit_uncertainty"] = scan_obj.sigma_A_consolidation()
 		chunk.attrs["axion_fit"] = scan_obj.axion_fit_consolidation()
-		chunk.attrs["power_deviation"] = scan_obj.weighted_delta_consolidation()
+		chunk.attrs["power_deviation"] = scan_obj.weighted_delta_consolidation() #formerly weighted deltas
 		chunk.attrs["axion_fit_significance"] = scan_obj.axion_fit_significance_consolidation()
 		chunk.attrs["sensitivity_coupling"] = scan_obj.coupling_sensitivity_consolidation()
 		chunk.attrs["sensitivity_power"] = scan_obj.power_senstivity_consolidation()
