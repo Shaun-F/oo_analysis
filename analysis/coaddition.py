@@ -29,7 +29,7 @@ class scan_cl(object):
 		self.scan_sensitivity_power = scan["sensitivity_power"]
 		self.scan_sensitivity_coupling = scan["sensitivity_coupling"]
 		self.scan_axion_frequencies = scan["axion_frequencies"]
-		chunk = initialization(chunk, scan) #Initialize any attributes not previously defined
+		chunk = initialization(chunk, scan, frequency_index_matcher()) #Initialize any attributes not previously defined
 		
 		self.chunk_scan_number = chunk.attrs["scans"]
 		self.chunk_nscans = chunk.attrs["nscans"]
@@ -48,7 +48,7 @@ class scan_cl(object):
 	
 	def frequency_index_matcher(self):
 		"""
-		Function returns the indices of the scan and chunk where the frequencies match, up to a tolerance.
+		Function returns the indices of the scan and chunk where the frequencies match, up to a tolerance. First index is chunk frequencies and second index is scan frequencies
 		"""
 		tol = 1 # Hz
 		cfreqs = self.chunk_axion_frequencies
@@ -62,27 +62,27 @@ class scan_cl(object):
 			
 		for inx, val in enumerate(sfreqs):
 			if np.abs(cfreqs[0]-val)<=tol:
-				#if sfreqs intersects beginning of cfreqs, set si equal to INF(cfreqs intersect sfreqs)
+				#if sfreqs intersects beginning of cfreqs, set si equal to index where beginnin of cfreq intersect sfreqs
 				si = inx
 				break
 		if si==None:
-				#if cfreqs intersects beginning of sfreqs, set ci equal to INF(cfreqs intersect sfreqs)
+				#if cfreqs intersects beginning of sfreqs, set ci equal to index where beginning of scan intersects cfreqs
 			for cidx, cfreq in enumerate(cfreqs):
 				if np.abs(sfreqs[0]-cfreq)<=tol:
 					ci = cidx
 					break
 					
-		two_indices = []
+		two_indices = np.array([[],[]])
 		if si!=None:
 			for sidx in range(len(sfreqs)):
 				#Iterate over sfreqs indices and insert the pair of indices, whose frequencies are within 'tol' of each other, into matching_indices
-				if (sidx-si+1)<0:
+				if (sidx-si)<0:
 					pass #Do nothing, since out of range of cfreq
 				elif not (isinstance(sfreqs[sidx], float) and isinstance(sfreqs[sidx]), int) or not (isinstance(cfreqs[sidx-si+1], float) and isinstance(cfreqs[sidx-si+1], int)):
 					#do nothing
 					pass
 				elif float(sfreqs[sidx]-cfreqs[sidx-si])<=tol:
-					np.insert(two_indices, [sidx-si,sidx])
+					np.insert(two_indices, 0, [sidx-si,sidx], axis=1)
 		elif ci!=None:
 			for sidx in np.arange(len(sfreqs)):
 				if (cfreqs.index(cfreqs[-1])-ci-sidx)<0:
@@ -91,9 +91,13 @@ class scan_cl(object):
 					#do nothing
 					pass
 				elif np.abs(sfreqs[sidx] - cfreqs[sidx+ci])<=tol:
-					np.insert(two_indices, [sidx+ci, sidx])
+					np.insert(two_indices, 0, [sidx+ci, sidx], axis=1)
 		else:
 			return "Error: frequencies of scan and chunk do not match"
+		#reorder nested lists into accending order
+		two_indices[0].sort(); two_indices[1].sort()
+		
+		#first index is cfreqs, second is sfreqs
 		return two_indices
 	
 	def axion_fit_consolidation(self):
@@ -248,55 +252,93 @@ class scan_cl(object):
 
 		
 		
-def initialization(chunk, scan):
+def initialization(chunk, scan, matched_freqs):
 
+	#Determine the frequencies and indices of the scan that dont intersect the chunk frequencies.
+	sfreqs = scan["axion_frequencies"]
+	
+	aligned_freqs = matched_freqs[1]
+	naligned_freqs = []
+	leftnalinged_indices = []
+	rightnaligned_indices = []
+	leftBreak=False
+	
+	#The following loop isnt very elegant but I need to determine on what side of the chunk does the scan hang off of in order to properly size the chunk.
+	for i in sfreqs:
+		if i not in aligned_freqs:
+			naligned_freqs.append(i)
+			if leftBreak=False:
+				leftnaligned_indices.append(sfreqs.index(i))	
+			elif leftBreak=True:
+				rightnaligned_indices.append(sfreqs.index(i))
+				
+		if i in aligned_freqs:
+			leftBreak=True
+			
+	left_hanging = False
+	Right_hanging = False
+	if 0 in leftnaligned_indices:
+		#Does the scan frequencies hang off the left side of the chunk frequencies
+		left_hanging = True
+	if (len(sfreqs)-1) in rightnaligned_indices:
+		#Does the scan frequencies hang off the right side of the chunk frequencies
+		right_hanging = True
+
+	#Initialize all attributes with empty containers
 	if 'scans' not in chunk.attrs:
 		chunk.attrs['scans'] = np.asarray([], dtype='byte') #array of scan id strings
-		
 	if 'sigma_w' not in chunk.attrs:
 		chunk.attrs['sigma_w'] = []
-		
 	if 'optimal_weight_sum' not in chunk.attrs:
 		chunk.attrs['optimal_weight_sum']=[]
-		
 	if 'SNR' not in chunk.attrs:
 		chunk.attrs['SNR'] = []
-		
 	if 'noise_power' not in chunk.attrs:
 		chunk.attrs['noise_power'] = []
-		
 	if 'model_excess_sqrd' not in chunk.attrs:
 		chunk.attrs['model_excess_sqrd'] = []
-		
 	if 'axion_fit' not in chunk.attrs:
-		chunk.attrs['axion_fit'] = []
-		
+		chunk.attrs['axion_fit'] = [1]
 	if 'axion_fit_uncertainty' not in chunk.attrs:
 		chunk.attrs['axion_fit_uncertainty'] = []
-		
 	if 'sensitivity_power' not in chunk.attrs:
 		chunk.attrs['sensitivity_power'] = []
-		
 	if 'sensitivity_coupling' not in chunk.attrs:
 		chunk.attrs['sensitivity_coupling'] = []
-		
 	if 'axion_frequencies' not in chunk.attrs:
 		chunk.attrs['axion_frequencies'] = []
-		
 	if 'power_deviation' not in chunk.attrs:
 		chunk.attrs["power_deviation"] = []
-		
 	if 'nscans' not in chunk.attrs:
 		chunk.attrs['nscans'] = []
-		
 	if 'scans_in' not in chunk.attrs:
 		chunk.attrs['scans_in'] = np.asarray([], dtype='byte') #array of scan id strings in grand spectra
-		
 	if 'scans_out' not in chunk.attrs:
 		chunk.attrs['scans_out'] = np.asarray([], dtype='byte') #array of scan id strings not in grand spectra
-		
 	if 'last_change' not in chunk.attrs:
 		chunk.attrs['last_change'] = np.asarray([], dtype='byte') #array of timestamp strings
+		
+	if left_hanging:
+		 for i in leftnaligned_indices:
+			chunk.attrs["sensitivity_coupling"]=np.insert(chunk.attrs["sensitivity_coupling"], 0, 0)
+			chunk.attrs["axion_fit_uncertainty"]=np.insert(chunk.attrs["axion_fit_uncertainty"], 0, float("inf")) 
+			chunk.attrs["model_excess_sqrt"]=np.insert(chunk.attrs["model_excess_sqrt"], 0, 0)
+			chunk.attrs["nscans"]=np.insert(chunk.attrs["nscans"], 0, 0)
+			chunk.attrs["optimal_weight_sum"]=np.insert(chunk.attrs["optimal_weight_sum"], 0, 0)
+			chunk.attrs["power_deviation"]=np.insert(chunk.attrs["power_deviation"], 0,0)
+			chunk.attrs["sensitivity_power"]=np.insert(chunk.attrs["sensitivity_power"], 0, float("inf"))
+			chunk.attrs["SNR"]=np.insert(chunk.attrs["SNR"], 0, 0)
+	if right_hanging:
+		for i in rightnaligned_indices
+			chunk.attrs["sensitivity_coupling"]=np.insert(chunk.attrs["sensitivity_coupling"], (len(sfreqs)-1), 0)
+			chunk.attrs["axion_fit_uncertainty"]=np.insert(chunk.attrs["axion_fit_uncertainty"], (len(sfreqs)-1), float("inf")) 
+			chunk.attrs["model_excess_sqrt"]=np.insert(chunk.attrs["model_excess_sqrt"], (len(sfreqs)-1), 0)
+			chunk.attrs["nscans"]=np.insert(chunk.attrs["nscans"], (len(sfreqs)-1), 0)
+			chunk.attrs["optimal_weight_sum"]=np.insert(chunk.attrs["optimal_weight_sum"], (len(sfreqs)-1), 0)
+			chunk.attrs["power_deviation"]=np.insert(chunk.attrs["power_deviation"], (len(sfreqs)-1),0)
+			chunk.attrs["sensitivity_power"]=np.insert(chunk.attrs["sensitivity_power"], (len(sfreqs)-1), float("inf"))
+			chunk.attrs["SNR"]=np.insert(chunk.attrs["SNR"], (len(sfreqs)-1), 0)
+		
 	return chunk
 		
 
