@@ -11,7 +11,8 @@ import numpy as np
 from astropy import constants as const
 from astropy import units as u
 from signals.modulation import *
-from filters.RCHPF import *
+from filters.backsub_filters_lib import RCHPF as reciprocated_clone_hpf
+from toolbox.DFT import DFT, IDFT
 from analysis.bin_consolidator import bin_consolidator
 import h5py
 from toolbox.axion_power import axion_power
@@ -86,7 +87,10 @@ def MR_scan_analysis(scan,**params):
 	DFSZshape = [i*dfszaxion for i in signal_shape["signal"]]
 
 	#Remove Receiver response from scan
-	filtered_data = reciprocated_clone_hpf(data, params["filter_params"][1])["filtereddata"]
+	try:
+		filtered_data = reciprocated_clone_hpf(inputs=data, copies=params["filter_params"][1])["filtereddata"]
+	except TypeError as error:
+		raise Exception("Error: Invalid data type for scan {0}. Type {1} not accepted".format(scan_number, type(data)))
 	filtered_data_mean = np.mean(filtered_data)
 	deltas = filtered_data - filtered_data_mean
 	digitizer_scan = bin_consolidator(digitizer_scan, res)

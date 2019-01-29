@@ -30,7 +30,7 @@ def RCHPF(inputs,window=10,copies=3,dyn=False):
 	"""
 	from filters.RCHPF import DFT, IDFT, reciprocated_clone_hpf
 	# subtracts large scale structure from input arrays
-	sub_data = reciprocated_clone_hpf(data=input, npairs=copies)
+	sub_data = reciprocated_clone_hpf(data=inputs, npairs=copies)
 	# determine if dynamic and set flags
 
 	

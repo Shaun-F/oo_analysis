@@ -10,6 +10,7 @@ sys.path.append("../experiment")
 sys.path.append("..")
 from get_squid_dataset import get_squid_dataset
 from calc_sys_temp_offline import calc_sys_temp
+import time
 
 # create main structure
 class core_analysis():
@@ -63,15 +64,21 @@ class core_analysis():
 		self.bad_scan_criteria['background'] = 'background condition'
 		self.collect_bad_scans()
 		import signals
+		signals_start = time.time()
 		self.signal_dataset = signals.generate(self)
+		signals_stop=time.time()
 		import analysis
+		analysis_start=time.time()
 		self.analysis_dataset = analysis.grand_spectra(self)
+		analysis_stop=time.time()
 		#import MCMC
 		# perform MCMC analysis
 		#import analytics
 		# generate plots
 		self.output()
 		self.h5py_file.close() #Close the file, saving the changes.
+		string="Signal generation took {0:0.3f} seconds. \n Analysis took {1:0.3f} seconds".format(signals_stop-signals_start, analysis_stop-analysis_start)
+		print(string)
 		return None
 
 
