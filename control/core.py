@@ -56,30 +56,35 @@ class core_analysis():
     # methods for calling executables
 
 	def execute(self):
-		
-		# sets all calculations in motion
-		self.collect_bad_scans()
-		import back_sub.__init__
-		self = back_sub.__init__.BS(self)
-		self.bad_scan_criteria['background'] = 'background condition'
-		self.collect_bad_scans()
-		import signals
-		signals_start = time.time()
-		self.signal_dataset = signals.generate(self)
-		signals_stop=time.time()
-		import analysis
-		analysis_start=time.time()
-		self.analysis_dataset = analysis.grand_spectra(self)
-		analysis_stop=time.time()
-		#import MCMC
-		# perform MCMC analysis
-		#import analytics
-		# generate plots
-		self.output()
-		self.h5py_file.close() #Close the file, saving the changes.
-		string="Signal generation took {0:0.3f} seconds. \n Analysis took {1:0.3f} seconds".format(signals_stop-signals_start, analysis_stop-analysis_start)
-		print(string)
-		return None
+		try:
+			# sets all calculations in motion
+			self.collect_bad_scans()
+			import back_sub.__init__
+			self = back_sub.__init__.BS(self)
+			self.bad_scan_criteria['background'] = 'background condition'
+			self.collect_bad_scans()
+			import signals
+			signals_start = time.time()
+			self.signal_dataset = signals.generate(self)
+			signals_stop=time.time()
+			import analysis
+			analysis_start=time.time()
+			self.analysis_dataset = analysis.grand_spectra(self)
+			analysis_stop=time.time()
+			#import MCMC
+			# perform MCMC analysis
+			#import analytics
+			# generate plots
+			self.output()
+			self.h5py_file.close() #Close the file, saving the changes.
+			string="Signal generation took {0:0.3f} seconds. \n Analysis took {1:0.3f} seconds".format(signals_stop-signals_start, analysis_stop-analysis_start)
+			print(string)
+			return None
+		except (KeyError, TypeError) as error:
+			self.h5py_file.close() #prevent corruption on break
+			print(error)
+			raise
+			
 
 
 
@@ -125,5 +130,8 @@ class core_analysis():
 
 		return None
 
-x = core_analysis()
-x.execute()
+		
+if __name__ in '__main__':
+
+	x = core_analysis()
+	x.execute()

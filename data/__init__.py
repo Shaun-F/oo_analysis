@@ -14,6 +14,8 @@ def input(parameters):
 	stop = int(parameters['end_scan'])
 	# gets intput data
 	import h5py
+	import warnings
+	warnings.simplefilter(action='ignore', category=FutureWarning)
 	data = h5py.File(b"../data/raw/run1a_data.hdf5", "r+")
 	dig_dataset = {}
 	axion_dataset = {}
