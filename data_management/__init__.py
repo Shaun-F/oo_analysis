@@ -13,7 +13,7 @@ def write_out(dataset,path):
 	"""
 	#data = h5py.File(path, 'w')
 	# use write functioins to put grand spectra to file
-	data = dataset[...]
+	data = dataset['power_deviation'][...]
 	attributes = {key: dataset.attrs[key] for key in dataset.attrs}
 
 	output_file = open(path, 'wb')

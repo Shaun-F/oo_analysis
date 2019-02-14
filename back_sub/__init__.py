@@ -6,8 +6,7 @@ Creation Date: 10/26/18
 """
 # set up for background subtraction
 import back_sub.gain as gain
-import sys
-sys.path.append("..")
+import sys;sys.path.append("..")
 from param_parser import parser
 from toolbox.pulldata import pulldata
 

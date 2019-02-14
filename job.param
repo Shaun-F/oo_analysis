@@ -13,8 +13,8 @@ filter_params=[10,3]
 nbins=256
 
 pull_data='true'
-start_scan=516306
-end_scan=516309
+start_scan=516000
+end_scan=516300
 bad_scans="file path"
 restype="MR"
 

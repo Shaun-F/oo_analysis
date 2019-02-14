@@ -8,6 +8,9 @@ import pyopencl as cl
 import reikna.cluda as cluda
 from reikna.fft import FFT as fftcl
 import os
+import sys
+sys.path.append("..")
+from toolbox.plot_dataset import plotter
 
 os.environ["PYOPENCL_COMPILER_OUTPUT"] = "1"
 ####################################
@@ -76,12 +79,14 @@ def IDFT(inputsignal):
     res = ifft_res_dev.get()
     return res
 	
-def reciprocated_clone_hpf(data, npairs):
+def reciprocated_clone_hpf(data, npairs, testing=False, scan_number='(Unknown)'):
 	"""
 	Parameters:
 				data: can be array of data or a digitizer number
 				npairs: number of clones to make when generating large fourier domain
-				ch: --OBSOLETE-- specify channel data was taken on.
+				(removed)ch: --OBSOLETE-- specify channel data was taken on.
+				testing: Used for testing... Plots major calculations in the script of meta analysis if True
+				scan_number: used for testing. Specifies scan number in title when saving plots
 	"""
 	avail_types = [numpy.ndarray, numpy.arange(1), 1, 1.]
 	for i in avail_types:
@@ -90,6 +95,8 @@ def reciprocated_clone_hpf(data, npairs):
 		else:
 			return "Error: invalid data type"
 	
+	if data[1]-data[0]>2*10**(-9): # Some spectra have odd behavior at beginning of scan, i.e. a single downward spike at the beginning position. I just set a default value
+		data[0]=data[1]
 	ORIG = data
 	sz = len(data)
 	n = npairs # Specifies number of concatenated datasets
@@ -103,11 +110,16 @@ def reciprocated_clone_hpf(data, npairs):
 	mindata = numpy.min(data)
 	argmax = numpy.argmax(data)
 	argmin = numpy.argmin(data)
+	"""
 	vratio = (maxdata-mindata)/(maxdata+mindata)
 	wratio = numpy.absolute(argmax - argmin)/sz
-	sigmamult = (vratio/wratio)*5.0+3.0
-	sigma = numpy.ceil((2*n+1)*sigmamult)
-
+	sigmamult = (vratio/wratio)*5*10**2
+	sigmao = numpy.ceil((2*n+1)*sigmamult)
+	"""
+	
+	struc_length = 2*(numpy.absolute(argmax-argmin))
+	sigmamult = (2*numpy.pi)/(struc_length)*8*10**2
+	sigma = numpy.ceil(sigmamult*(2*n+1))
 
 	#reflects the dataset about the center and operates on it to sequence datasets without discontinuities 
 	a = data[0]
@@ -122,7 +134,6 @@ def reciprocated_clone_hpf(data, npairs):
 		tophat[i]=1
 		tophat[szA-i-1] = 1
 	
-	
 	# Fourier transform large array
 	fftSigToPlot = DFT(SigToPlot) 
 	reducedfftSigToPlot = tophat*fftSigToPlot # Isolate lower frequencies
@@ -134,12 +145,39 @@ def reciprocated_clone_hpf(data, npairs):
 	
 	#pick out the original signal
 	pickORIG = [0]*len(data)
+	if n%2==1: #calculate which part of the array to pick out. if n is odd, pick out the original scan to the left of the center of the array. if n is even, pick out the middle
+		l=n
+	elif n%2==0:
+		l=n+1
+		
 	for i in range(len(data)):
-		pickORIG[i] = BSfftSigToPlot[(3*len(data)+i)]
+		pickORIG[i] = BSfftSigToPlot[(l*len(data)+i)]
 		
 	ORIG = numpy.array(data) #Convert back into an array
 	pickORIG =  numpy.array(pickORIG)
 	filtereddata = ORIG/pickORIG # Divide out low freq. structure from data.
+	
+	
+	if testing == True:
+		sdir = "C:/Users/drums/Documents/Coding Software/Python/Scripts/New-Analysis-Scheme/oo_analysis/figures/"+ '('+scan_number+')'
+		format = '.pdf'
+		print("Plotting data")
+		plotter(data,savedir = sdir+'data'+format); 
+		print("Plotting reflected data");
+		plotter(REFL,savedir = sdir+'refl_data'+format); 
+		print("Plotting reciprocated array");
+		plotter(RECIP,savedir = sdir+'recip_datas'+format); 
+		print("Plotting large appended array")
+		plotter(SigToPlot,savedir = sdir+'large_append_array'+format); 
+		print("Plotting fft'ed large appended array");
+		plotter(fftSigToPlot,savedir = sdir+'fft-ed large appended_array'+format); 
+		print("Plotting inverse fft'ed subtracted fft")
+		plotter(BSfftSigToPlot,savedir = sdir+'inverse fft-ed append array'+format);
+		print("Plotting recovered data from inverse fft'ed array")
+		plotter(pickORIG,savedir = sdir+'recovered data from ifft-ed array'+format)
+		print("Plotting filtered data")
+		plotter(filtereddata,savedir = sdir+'filtered data'+format)
+		
 	"""
 	teller=0
 	for i, val in enumerate(filtereddata):
@@ -166,36 +204,7 @@ def SG_filter(signal):
     to_remove = SGfilter(signal, W, d)
     FilteredSignal = signal/to_remove
     return FilteredSignal
-    
-def plotter(signal, title=None, xlabel=None, ylabel=None, Min = None, Max = None, filename="None"):
-	from matplotlib import pyplot as plt
-	#import pandas as pd
-	plt.style.use('seaborn-pastel')
-	#plt.clf() #first clear current figures, as safe guard
 
-	if Min==None:
-		Min=numpy.min(signal)
-	if Max==None:
-		Max=numpy.max(signal)
-		
-	f, ax = plt.subplots(1, figsize=(6,6))
-	length = len(signal)
-	
-	ax.set_title(title)
-	ax.set_xlabel(xlabel)
-	ax.set_ylabel(ylabel)
-	ax.set_ylim(Min, Max)
-	savefile = savedir + filename
-    
-	ax.plot(numpy.arange(length), signal.real, linestyle='-')
-	plt.tight_layout()
-
-	if filename=="None":
-		plt.show()
-	else:
-		plt.savefig(savefile, dpi=600)
-	#plt.clf() #clear figures again
-	
 def ADMX_signal_model(freq,exp_pow,poly_pow,temp):
     if freq<=rest_energy/h:
         return 0.0
@@ -203,9 +212,9 @@ def ADMX_signal_model(freq,exp_pow,poly_pow,temp):
         pass
     sig = temp*rest_energy/h
     nuosig = (freq-rest_energy/h)/sig
-    gamma = gamma((1.0+poly_pow)/exp_pow)
+    gammafunc = gamma((1.0+poly_pow)/exp_pow)
     Cnum = exp_pow
-    Cden = ((1.0/(sig))**exp_pow)**(-(1.0+poly_pow)/exp_pow)*(1.0/sig)**(poly_pow)*gamma
+    Cden = ((1.0/(sig))**exp_pow)**(-(1.0+poly_pow)/exp_pow)*(1.0/sig)**(poly_pow)*gammafunc
     C = Cnum/Cden
     dist = C*(nuosig)**poly_pow*numpy.exp(-(nuosig)**exp_pow)
     return dist
@@ -246,7 +255,36 @@ def generate_signal(with_signal=True):
 	noises = noise+signals
 	toreturn = {"Combined signal":Combined_Signal, "noise":noises[0], "backgrounds":background[0], "axion signal":single_signal}
 	return toreturn
- 
+""" 
+def plotter(signal, title=None, xlabel=None, ylabel=None, Min = None, Max = None, filename="None"):
+	from matplotlib import pyplot as plt
+	#import pandas as pd
+	plt.style.use('seaborn-pastel')
+	#plt.clf() #first clear current figures, as safe guard
+
+	if Min==None:
+		Min=numpy.min(signal)
+	if Max==None:
+		Max=numpy.max(signal)
+		
+	f, ax = plt.subplots(1, figsize=(6,6))
+	length = len(signal)
+	
+	ax.set_title(title)
+	ax.set_xlabel(xlabel)
+	ax.set_ylabel(ylabel)
+	ax.set_ylim(Min, Max)
+	savefile = savedir + filename
+    
+	ax.plot(numpy.arange(length), signal.real, linestyle='-')
+	plt.tight_layout()
+
+	if filename=="None":
+		plt.show()
+	else:
+		plt.savefig(savefile, dpi=600)
+	#plt.clf() #clear figures again
+"""	
 
 
 	

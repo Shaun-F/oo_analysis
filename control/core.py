@@ -4,12 +4,12 @@ core.py: holds  control routines for analysis
 Created by: Erik Lentz
 Creation Date: 6/1/18
 """
-from param_parser import parser
 import sys
 sys.path.append("../experiment")
 sys.path.append("..")
-from get_squid_dataset import get_squid_dataset
-from calc_sys_temp_offline import calc_sys_temp
+from control.param_parser import parser
+from experiment.get_squid_dataset import get_squid_dataset
+from experiment.calc_sys_temp_offline import calc_sys_temp
 import time
 
 # create main structure
@@ -26,7 +26,9 @@ class core_analysis():
         # set data structures
 		import data.__init__ 
 		self.dig_dataset, self.axion_dataset, self.squid_dataset, self.h5py_file = data.__init__.input(params)
-		self.keys = self.dig_dataset.keys()
+		self.keys = self.axion_dataset.keys() #Was originally dig_dataset,but some digitizer logs didnt have associated axion logs.
+
+		self.output_file = "../output/grand_spectra.dat"
 		
         # derive necessary experiment data structures (put into axion_dataset)
 		#Populate parameter dict's with dataset attributes.
@@ -37,7 +39,7 @@ class core_analysis():
 		self.Q = {key: float(self.axion_dataset[key].attrs["Q"]) for key in self.keys}
 		self.notes = {key: self.axion_dataset[key].attrs["notes"] for key in self.keys}
 		self.afreq = self.axion_mass/(4.13566766*10**(-15)) #attach axion freq to object
-			
+
 		data.add_input(self.axion_dataset,self.Tsys,'Tsys')
 		# derive necessary digitization structures??
 		
@@ -69,7 +71,7 @@ class core_analysis():
 			signals_stop=time.time()
 			import analysis
 			analysis_start=time.time()
-			self.analysis_dataset = analysis.grand_spectra(self)
+			self.analysis_dataset, ncut = analysis.grand_spectra(self)
 			analysis_stop=time.time()
 			#import MCMC
 			# perform MCMC analysis
@@ -77,7 +79,9 @@ class core_analysis():
 			# generate plots
 			self.output()
 			self.h5py_file.close() #Close the file, saving the changes.
-			string="Signal generation took {0:0.3f} seconds. \n Analysis took {1:0.3f} seconds".format(signals_stop-signals_start, analysis_stop-analysis_start)
+			
+			string="\nSignal generation took {0:0.3f} seconds. \n Analysis of {1} scans took {2:0.3f} seconds. \n Of those scans, {3:d} where cut. \n\n Writing output to {4}".format(signals_stop-signals_start, len(self.keys),  analysis_stop-analysis_start, ncut, self.output_file)
+			
 			print(string)
 			return None
 		except (KeyError, TypeError) as error:
@@ -91,7 +95,7 @@ class core_analysis():
 	def output(self):
 		# outputs data to local "./output/" directory
 		import data_management
-		data_management.write_out(self.analysis_dataset,"../output/grand_spectra.dat")
+		data_management.write_out(self.analysis_dataset,self.output_file)
 		return None
 		
 	def collect_bad_scans(self):
@@ -99,7 +103,7 @@ class core_analysis():
 		# collecting metadata for later analysis
 		# may want to set up to run through only one or a set of conditions
 		# should also try to make dynamics so that it only tries new conditions
-		for key,value in self.dig_dataset.items(): # python 3.x
+		for key in self.keys: # python 3.x
 			cut = False
 			cut_reason = ""
 			condition = self.bad_scan_criteria

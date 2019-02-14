@@ -31,7 +31,7 @@ def get_squid_dataset(timestamp):
 							#Find closest value
 							closest.append(x)
 	if len(closest)==1:
-		return closest[0]
+		return f[closest[0]]
 	elif len(closest)!=0:
 		minutes = []
 		minute = int(minute)

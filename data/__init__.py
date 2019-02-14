@@ -17,14 +17,30 @@ def input(parameters):
 	import warnings
 	warnings.simplefilter(action='ignore', category=FutureWarning)
 	data = h5py.File(b"../data/raw/run1a_data.hdf5", "r+")
+	
+	if "bad_timestamps_run1a" not in data.keys():
+		data.create_dataset(name="bad_timestamps_run1a", dtype="S10", data = [b"initval"], maxshape=(None,))
+		
 	dig_dataset = {}
 	axion_dataset = {}
 	squid_dataset = {}
 	for i in range(start,stop):
-		inx = str(i)
-		dig_dataset[inx] = data["digitizer_log_run1a"][inx]
-		axion_dataset[inx] = data["axion_log_run1a"][inx]
-		squid_dataset[inx] = get_squid_dataset(axion_dataset[inx].attrs["timestamp"])
+		try:
+			inx = str(i)
+			dig_dataset[inx] = data["digitizer_log_run1a"][inx]
+		except KeyError:
+			continue #No digitizer log found. check next scan number
+		try:
+			inx = str(i)
+			axion_dataset[inx] = data["axion_log_run1a"][inx]
+		except KeyError:
+			print(Exception("Error: No associated axion log for scan {0:s}".format(str(i))))
+			continue
+		try:
+			inx=str(i)
+			squid_dataset[inx] = get_squid_dataset(axion_dataset[inx].attrs["timestamp"])
+		except KeyError:
+			raise Exception("Error: No squid dataset found for scan {0:s}".format(str(i)))
 	return dig_dataset, axion_dataset, squid_dataset, data
 
 def add_input(database,trait,trait_name):

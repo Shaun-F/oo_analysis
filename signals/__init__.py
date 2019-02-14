@@ -13,7 +13,7 @@ from toolbox.dict_to_object import dict_to_object
 
 def generate(object):
     # get structures
-	sigkeys = ["signal", "axion_mass", "nbins"]       # take down signal keys, like signal type and params
+	sigkeys = ["signal", "axion_mass", "nbins", "keys"]       # take down signal keys, like signal type and params
 	sigparams = {key: getattr(object,key) for key in sigkeys}
 	
 	scankeys = ["start_scan", "end_scan", "dig_dataset", "timestamp", "fstart", "fstop", "Tsys"]     # take down keys for getting scan specific information, like scan number and central mass/frequency, timestep, etc

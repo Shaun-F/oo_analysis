@@ -21,14 +21,23 @@ class analyser(object):
 	def __init__(self, object):
 		self.file = h5py.File(b"../data/raw/run1a_data.hdf5", "r+")
 		#pull grand spectra or create it. Then pull data group
-		if "grand_spectra_run1a" in self.file.keys():
-			self.grand_spectra = self.file["grand_spectra_run1a"]
-		else:
-			self.grand_spectra = self.file.create_dataset("grand_spectra_run1a", data = [], dtype=float, chunks = True, maxshape=None)
+		try:
+			if "grand_spectra_run1a" in self.file.keys():
+				self.grand_spectra_group = self.file["grand_spectra_run1a"]
+			else:
+				#self.grand_spectra = self.file.create_dataset("grand_spectra_run1a", data = [], dtype=float, chunks = True, maxshape=None)
+				self.grand_spectra_group = self.file.create_group("grand_spectra_run1a")
+				from toolbox.grand_spectra_init import initialization
+				initialization(self.grand_spectra_group)
+		except KeyError as error:
+			self.file.close()
+			return error
+			
 
 		for key, attr in object.__dict__.items():
 			setattr(self, key, attr)
 	
+		self.ncut = 0 #Counter for number of cut scans
 	def Grand_Analysis(self):
 		# cycle over scans, analyzing each
 		self.analysis_results = {}
@@ -67,13 +76,15 @@ class analyser(object):
 				cut_reason = "Dispersion compared to radiometer dispersion. To large"
 				scan.attrs["cut"] = cut
 				scan.attrs["cut_reason"] = cut_reason
+			
 		
 			#add remaining scan to grand_spectra via coaddition
 			if scan.attrs['cut'] == False:
-				add_subtract_scan('add', self.analysis_results[key], self.grand_spectra, key)
+				add_subtract_scan('add', self.analysis_results[key], self.grand_spectra_group, key)
 			elif scan.attrs['cut'] == True:
-				add_subtract_scan('subtract', self.analysis_results[key], self.grand_spectra, key)
-		return self.grand_spectra
+				self.ncut += 1
+				add_subtract_scan('subtract', self.analysis_results[key], self.grand_spectra_group, key)
+		return self.grand_spectra_group, self.ncut
 		
 
 

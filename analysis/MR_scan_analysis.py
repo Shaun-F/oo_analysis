@@ -90,7 +90,9 @@ def MR_scan_analysis(scan,**params):
 	try:
 		filtered_data = reciprocated_clone_hpf(inputs=data, copies=params["filter_params"][1])["filtereddata"]
 	except TypeError as error:
+		print(error)
 		raise Exception("Error: Invalid data type for scan {0}. Type {1} not accepted".format(scan_number, type(data)))
+		
 	filtered_data_mean = np.mean(filtered_data)
 	deltas = filtered_data - filtered_data_mean
 	digitizer_scan = bin_consolidator(digitizer_scan, res)

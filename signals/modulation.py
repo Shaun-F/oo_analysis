@@ -41,7 +41,7 @@ class modulation():
 		scans = default["dig_dataset"]
 		
 		signals = {}
-		for key in scans.keys():
+		for key in self.keys:
 			signals[key] = self.modulatedsignal(modulation_type, timestamps[key], shape_model, axion_mass, **secondary)
 		return signals
 		
