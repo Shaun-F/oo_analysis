@@ -18,6 +18,7 @@ import h5py
 from toolbox.axion_power import axion_power
 from experiment.calc_sys_temp_offline import *
 from toolbox.lorentzian import lorentzian
+import time
 
 
 
@@ -37,7 +38,7 @@ def convolve_two_arrays(array1, array2):
 
 	
 	
-def MR_scan_analysis(scan,**params):
+def MR_scan_analysis(scan, **params):
 	"""
 	Single scan analysis procedure.
 	scanparams = dig_dataset, res, notes
@@ -48,6 +49,8 @@ def MR_scan_analysis(scan,**params):
 	digitizer_scan = scan 
 	scan_number = params["scan_number"]
 	#Write exceptions here (reason not to include scans in Run1A)
+	
+	constants_start = time.time()
 	fstart = digitizer_scan.attrs["start_frequency"]
 	fstop = digitizer_scan.attrs["stop_frequency"]
 	res = digitizer_scan.attrs["frequency_resolution"]
@@ -59,9 +62,12 @@ def MR_scan_analysis(scan,**params):
 	Tsys = params["Tsys"] #calculate the system temperature
 	kT = k*Tsys 
 	BkT = binwidth*kT
-
+	constants_stop = time.time()
+	
+	
 	data = digitizer_scan[...]
 
+	
 	modulation_type = params["pec_vel"]
 	signal_shape = params["signal"]
 	
@@ -76,107 +82,154 @@ def MR_scan_analysis(scan,**params):
 	wantTseries=None
 	
 	#Calculate average power deposited by axion
+	axion_power_start = time.time()
 	dfszaxion = axion_power(params["axion_scan"],axion_RMF, nbins=nbins, res=res)
-	
-	#Calculate boosted signal
-	mod_class = modulation()
-	kwargs = {'resolution':binwidth}
-	signal_shape = mod_class.modulatedsignal(modulation_type, timestamp, signal_shape, axion_mass, **kwargs)
-	
-	axblank = np.empty_like(signal_shape["signal"])
-	DFSZshape = [i*dfszaxion for i in signal_shape["signal"]]
-
-	#Remove Receiver response from scan
+	axion_power_stop = time.time()
 	try:
-		filtered_data = reciprocated_clone_hpf(inputs=data, copies=params["filter_params"][1])["filtereddata"]
-	except TypeError as error:
-		print(error)
-		raise Exception("Error: Invalid data type for scan {0}. Type {1} not accepted".format(scan_number, type(data)))
+		#Calculate boosted signal
+		modulation_start = time.time()
+		mod_class = modulation()
+		kwargs = {'resolution':binwidth}
+		signal_shape = mod_class.modulatedsignal(modulation_type, timestamp, signal_shape, axion_mass, **kwargs)
+		modulation_stop = time.time()
 		
-	filtered_data_mean = np.mean(filtered_data)
-	deltas = filtered_data - filtered_data_mean
-	digitizer_scan = bin_consolidator(digitizer_scan, res)
+		axblank = np.empty_like(signal_shape["signal"])
+		DFSZshape = [i*dfszaxion for i in signal_shape["signal"]]
+
+		#Remove Receiver response from scan
+		BS_start = time.time()
+		try:
+			copies=params["filter_params"][1]
+			window = params['filter_params'][0]
+			filter = reciprocated_clone_hpf(data, window, copies, False, **params['submeta'])
+			filtered_data = filter['filtereddata']
+			submeta = filter['meta']
+		except TypeError as error:
+			raise
+			#raise Exception("Error: Invalid data type for scan {0}. Type {1} not accepted".format(scan_number, type(data)))
+		BS_stop = time.time()
+		
+		consolidation_start = time.time()
+		filtered_data_mean = np.mean(filtered_data)
+		deltas = (filtered_data - filtered_data_mean)
+		digitizer_scan = bin_consolidator(digitizer_scan, res)
+		consolidation_stop = time.time()
+		
+		
+		cavity_lorentz_start = time.time()
+		Q = params["axion_scan"].attrs["Q"]
+		res_freq = params["axion_scan"].attrs["mode_frequency"]
+		lorentzian_profile = lorentzian(Q, res_freq*10**6, nbins, binwidth)
+		cc = 0.5
+		cav_trans_mod = cc*lorentzian_profile
+		axion_power_excess_watts = dfszaxion*cav_trans_mod
+		cavity_lorentz_stop = time.time()
+		
+		
+		#Genereate bin-wise scan stats assuming all power in single bin
+		bin_stats_start = time.time()
+		sigma = np.std(deltas)
+		sigma_w = BkT*sigma
+		power_deltas = BkT*deltas
+		trans_power_deltas = cav_trans_mod*power_deltas
+		variance_w = sigma_w**2
+		nscans = lorentzian_profile
+		noise_power = sigma_w
+		SNR = axion_power_excess_watts/sigma_w
+		bin_stats_stop = time.time()
+		
+		#Fit to axion signal
+
+		#perform convolution based on convolution theorem
+		
+		convolutions_start = time.time()
+		trans_power_deltas_fft = DFT(trans_power_deltas)
+		DFSZshape_fft = DFT(DFSZshape)
+		dfszpow = dfszaxion
+		signal_data_convolution = convolve_two_arrays(trans_power_deltas, DFSZshape) 
+		convolution_length = len(signal_data_convolution)
+		convolutions_stop = time.time()
+		
+		axion_rmfs_start = time.time()
+		axion_rmfs = []
+		n_signal_width = len(DFSZshape)
+		for i in np.arange(scan_length+2*n_signal_width)-1:
+			axion_rmfs.append(axion_RMF + binwidth*(i-middlefreqpos-n_signal_width))
+		axion_rmfs_stop = time.time()
+			
+		#find maximum likelihood
+
+		max_likelihood_arith_start = time.time()
+		conv_Aml_num = signal_data_convolution
+		Aml_num = signal_data_convolution*(1/(2*sigma_w**2))
+		lorentz_squared = cav_trans_mod**2
+		model_squared = [i**2 for i in DFSZshape] #DFSZshape**2
+		conv_Aml_den = convolve_two_arrays(lorentz_squared, model_squared)
+		Aml_den = conv_Aml_den*(1/(2*sigma_w**2))
+		model_excess_sqrd = Aml_den
+		optimal_weight_sum = Aml_num
+		max_likelihood_arith_stop = time.time()
+		
+		#compute most likely axion power
+		max_likelihood_start = time.time()
+		maximum_likelihood = Aml_num/Aml_den
+		#Compute chi squared for maximum_likelihood sigma by explicit calculation
+		A = maximum_likelihood
+		array1 = [1]*len(A)
+		A_factor = (2*A + 1)
+		data_model_coeff = 2*Aml_num
+
+		chi_sqrd_diff_one = array1*data_model_coeff
+		chi_sqrd_diff_two = A_factor*Aml_den
+
+		data_squared = power_deltas**2
+		first_two_terms = A**2*Aml_den-2*A*Aml_num
+
+		chi_squared_diff = chi_sqrd_diff_two - chi_sqrd_diff_one
+		chi_squared_diff_red = chi_squared_diff/np.sqrt(len(data)-1)
+
+		sigma_A = []
+		for i in np.arange(len(chi_squared_diff_red)):
+			sigma_A.append(np.sqrt(2*chi_squared_diff[i])**(-1))
+		max_likelihood_stop = time.time()
+		
+		sig_sens_start = time.time()
+		#Fit significance
+		axion_fit_significance = A/sigma_A
+
+		
+		#Sensitivity is calculated using significance of fit to axion of known power
+		cl_coeff = 1.64485 #how many sigmas does 90% of data fall within
+		sensitivity_power = [i*cl_coeff for i in sigma_A] #sigma_A*cl_coeff
+		sensitivity_coupling = [np.sqrt(i) for i in sensitivity_power] #np.sqrt(sensitivity_power)
 
 
-	Q = eval(params["axion_scan"].attrs["Q"])
-	res_freq = eval(params["axion_scan"].attrs["mode_frequency"])
-	lorentzian_profile = lorentzian(Q, res_freq*10**6, nbins, binwidth)
-	cc = 0.5
-	cav_trans_mod = cc*lorentzian_profile
-	axion_power_excess_watts = dfszaxion*cav_trans_mod
-
-	#Genereate bin-wise scan stats assuming all power in single bin
-	sigma = np.std(deltas)
-	sigma_w = BkT*sigma
-	power_deltas = BkT*deltas
-	trans_power_deltas = cav_trans_mod*power_deltas
-	variance_w = sigma_w**2
-	nscans = lorentzian_profile
-	noise_power = sigma_w
-	SNR = axion_power_excess_watts/sigma_w
-
-	#Fit to axion signal
-
-	#perform convolution based on convolution theorem
-
-	trans_power_deltas_fft = DFT(trans_power_deltas)
-	DFSZshape_fft = DFT(DFSZshape)
-	dfszpow = dfszaxion
-	signal_data_convolution = convolve_two_arrays(trans_power_deltas, DFSZshape) 
-	convolution_length = len(signal_data_convolution)
-
-	axion_rmfs = []
-	n_signal_width = len(DFSZshape)
-	for i in np.arange(scan_length+2*n_signal_width)-1:
-		axion_rmfs.append(axion_RMF + binwidth*(i-middlefreqpos-n_signal_width))
-
-	#find maximum likelihood
-
-	conv_Aml_num = signal_data_convolution
-	Aml_num = signal_data_convolution*(1/(2*sigma_w**2))
-	lorentz_squared = cav_trans_mod**2
-	model_squared = [i**2 for i in DFSZshape] #DFSZshape**2
-	conv_Aml_den = convolve_two_arrays(lorentz_squared, model_squared)
-	Aml_den = conv_Aml_den*(1/(2*sigma_w**2))
-	model_excess_sqrd = Aml_den
-	optimal_weight_sum = Aml_num
-
-	#compute most likely axion power
-	maximum_likelihood = Aml_num/Aml_den
-	#Compute chi squared for maximum_likelihood sigma by explicit calculation
-	A = maximum_likelihood
-	array1 = [1]*len(A)
-	A_factor = (2*A + 1)
-	data_model_coeff = 2*Aml_num
-
-	chi_sqrd_diff_one = array1*data_model_coeff
-	chi_sqrd_diff_two = A_factor*Aml_den
-
-	data_squared = power_deltas**2
-	first_two_terms = A**2*Aml_den-2*A*Aml_num
-
-	chi_squared_diff = chi_sqrd_diff_two - chi_sqrd_diff_one
-	chi_squared_diff_red = chi_squared_diff/np.sqrt(len(data)-1)
-
-	sigma_A = []
-	for i in np.arange(len(chi_squared_diff_red)):
-		sigma_A.append(np.sqrt(2*chi_squared_diff[i])**(-1))
-
-	#Fit significance
-	axion_fit_significance = A/sigma_A
-
-	#Sensitivity is calculated using significance of fit to axion of known power
-	cl_coeff = 1.64485 #how many sigmas does 90% of data fall within
-	sensitivity_power = [i*cl_coeff for i in sigma_A] #sigma_A*cl_coeff
-	sensitivity_coupling = [np.sqrt(i) for i in sensitivity_power] #np.sqrt(sensitivity_power)
-
-
-	#consolidate statisitics
-	nscans = np.append(axblank, np.append(nscans,axblank))
-	SNR = np.append(axblank, np.append(SNR, axblank))
-	noise_power = np.append(axblank, np.append(noise_power, axblank))
-	power_deviation = np.append(axblank, np.append(power_deltas, axblank)) #weighted_deltas
-
+		#consolidate statisitics
+		nscans = np.append(axblank, np.append(nscans,axblank))
+		SNR = np.append(axblank, np.append(SNR, axblank))
+		noise_power = np.append(axblank, np.append(noise_power, axblank))
+		power_deviation = np.append(axblank, np.append(power_deltas, axblank)) #weighted_deltas
+		sig_sens_stop = time.time()
+	except (KeyError, ValueError):
+		print("\n\nError with scan {0}".format(scan_number))
+		raise
+	if submeta['timeit']:
+		submeta = params['submeta']
+		submeta['constants'].append(constants_stop - constants_start)
+		submeta['axion_power'].append(axion_power_stop - axion_power_start)
+		submeta['modulation'].append(modulation_stop - modulation_start)
+		submeta['BS'].append(BS_stop - BS_start)
+		submeta['consolidation'].append(consolidation_stop - consolidation_start)
+		submeta['cavity_lorentz'].append(cavity_lorentz_stop - cavity_lorentz_start)
+		submeta['bin_stats'].append(bin_stats_stop - bin_stats_start)
+		submeta['convolutions'].append(convolutions_stop - convolutions_start)
+		submeta['axion_rmfs'].append(axion_rmfs_stop - axion_rmfs_start)
+		submeta['max_likelihood_arith'].append(max_likelihood_arith_stop - max_likelihood_arith_start)
+		submeta['max_likelihood'].append(max_likelihood_stop - max_likelihood_start)
+		submeta['sig_sens'].append(sig_sens_stop - sig_sens_start)
+	
+	
+	
 	results = {'deltas':deltas,
 				'scan_id':scan_number,
 				'nscans':nscans,

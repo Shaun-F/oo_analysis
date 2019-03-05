@@ -13,6 +13,7 @@ import sys
 sys.path.append("..")
 import toolbox.coord_transform as tf_lib
 from signals.signal_lib import signal
+import time
 
 class modulation():
 	def __init__(self,**params):
@@ -41,8 +42,17 @@ class modulation():
 		scans = default["dig_dataset"]
 		
 		signals = {}
+		timer = []
 		for key in self.keys:
+			start = time.time()
 			signals[key] = self.modulatedsignal(modulation_type, timestamps[key], shape_model, axion_mass, **secondary)
+			stop = time.time()
+			timer.append(stop-start)
+		
+		if self.meta_analysis[0]:
+			avg = sum(timer)/len(timer)
+			self.meta_analysis.append("Signal modulation took, on average, {0:03f} seconds".format(avg))
+		
 		return signals
 		
 	# methods for incorporating several levels of peculiar velocities and other

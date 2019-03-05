@@ -16,32 +16,27 @@ def input(parameters):
 	import h5py
 	import warnings
 	warnings.simplefilter(action='ignore', category=FutureWarning)
-	data = h5py.File(b"../data/raw/run1a_data.hdf5", "r+")
+	print("Loading hdf5 file and datasets")
+	data_file = h5py.File(b"../data/raw/run1a_data.hdf5", "r+")
 	
-	if "bad_timestamps_run1a" not in data.keys():
-		data.create_dataset(name="bad_timestamps_run1a", dtype="S10", data = [b"initval"], maxshape=(None,))
+	if "bad_timestamps_run1a" not in data_file.keys():
+		data_file.create_dataset(name="bad_timestamps_run1a", dtype="S10", data = [b"initval"], maxshape=(None,))
 		
 	dig_dataset = {}
-	axion_dataset = {}
-	squid_dataset = {}
-	for i in range(start,stop):
-		try:
-			inx = str(i)
-			dig_dataset[inx] = data["digitizer_log_run1a"][inx]
-		except KeyError:
-			continue #No digitizer log found. check next scan number
-		try:
-			inx = str(i)
-			axion_dataset[inx] = data["axion_log_run1a"][inx]
-		except KeyError:
-			print(Exception("Error: No associated axion log for scan {0:s}".format(str(i))))
-			continue
-		try:
-			inx=str(i)
-			squid_dataset[inx] = get_squid_dataset(axion_dataset[inx].attrs["timestamp"])
-		except KeyError:
-			raise Exception("Error: No squid dataset found for scan {0:s}".format(str(i)))
-	return dig_dataset, axion_dataset, squid_dataset, data
+	no_axion_log = []
+	
+	try:
+		dig_dataset = {str(key): data_file['digitizer_log_run1a'][str(key)] for key in range(start, stop)}
+		
+	except (KeyError, MemoryError):
+		raise
+		
+	for key in dig_dataset:
+		if not 'alog_timestamp' in dig_dataset[key].attrs:
+			no_axion_log.append(key)
+	
+	
+	return dig_dataset, data_file, no_axion_log
 
 def add_input(database,trait,trait_name):
 	"""function takes trait in dictionary form and inputs attribute into
@@ -54,3 +49,18 @@ def add_input(database,trait,trait_name):
 		elif trait_name not in database[key].attrs:
 			database[key].attrs.create(trait_name, trait[key])
 	return database
+	
+	"""
+	for i in range(start,stop):
+		try:
+			inx = str(i)
+			dig_dataset[inx] = data_file["digitizer_log_run1a"][inx]
+		except KeyError:
+			continue #No digitizer log found. check next scan number
+		try:
+			inx = str(i)
+			axion_dataset[inx] = data_file["axion_log_run1a"][inx]
+		except KeyError:
+			no_axion_log.append(str(i))
+			continue
+	"""

@@ -11,6 +11,7 @@ import os
 import sys
 sys.path.append("..")
 from toolbox.plot_dataset import plotter
+import time
 
 os.environ["PYOPENCL_COMPILER_OUTPUT"] = "1"
 ####################################
@@ -79,7 +80,7 @@ def IDFT(inputsignal):
     res = ifft_res_dev.get()
     return res
 	
-def reciprocated_clone_hpf(data, npairs, testing=False, scan_number='(Unknown)'):
+def reciprocated_clone_hpf(data, npairs, testing=False, scan_number='(Unknown)', **meta):
 	"""
 	Parameters:
 				data: can be array of data or a digitizer number
@@ -88,24 +89,29 @@ def reciprocated_clone_hpf(data, npairs, testing=False, scan_number='(Unknown)')
 				testing: Used for testing... Plots major calculations in the script of meta analysis if True
 				scan_number: used for testing. Specifies scan number in title when saving plots
 	"""
+	
 	avail_types = [numpy.ndarray, numpy.arange(1), 1, 1.]
 	for i in avail_types:
 		if isinstance(data, i):
 			break
 		else:
 			return "Error: invalid data type"
-	
 	if data[1]-data[0]>2*10**(-9): # Some spectra have odd behavior at beginning of scan, i.e. a single downward spike at the beginning position. I just set a default value
 		data[0]=data[1]
+	while len(data)<256: #For some reason, some datasets dont have 2**8 elements.
+		data = numpy.append(data[0], data)
+	
+	reflecting_time_start = time.time()
 	ORIG = data
 	sz = len(data)
 	n = npairs # Specifies number of concatenated datasets
 	REFL = data[::-1] # Generate a reflected copy of data
 	DOMAIN = numpy.arange(len(data)) # Generate domain for edge-matching function
-
+	reflecting_time_stop = time.time()
 	
 	#Generate statistics about the data set and define variables
 
+	calculating_tophat_size_start = time.time()
 	maxdata = numpy.max(data)
 	mindata = numpy.min(data)
 	argmax = numpy.argmax(data)
@@ -118,32 +124,52 @@ def reciprocated_clone_hpf(data, npairs, testing=False, scan_number='(Unknown)')
 	"""
 	
 	struc_length = 2*(numpy.absolute(argmax-argmin))
-	sigmamult = (2*numpy.pi)/(struc_length)*8*10**2
+	sigmamult = (2*numpy.pi)/(struc_length)*30*10**2
 	sigma = numpy.ceil(sigmamult*(2*n+1))
-
+	calculating_tophat_size_stop = time.time()
+	
 	#reflects the dataset about the center and operates on it to sequence datasets without discontinuities 
+	
+	reciprocating_array_start = time.time()
 	a = data[0]
 	b = data[-1]
 	RECIP = ((b**2 - a**2)*(numpy.cos(DOMAIN*numpy.pi/(2*numpy.size(REFL)))**2) + a**2)/REFL
-
+	reciprocating_array_stop = time.time()
+	
 	#Construct large array consisting of reflected and nonreflected data_array
+	generating_large_array_start = time.time()
 	SigToPlot = [*RECIP, *ORIG]*(n+1)
 	szA = len(SigToPlot) # Find length of large array
+	generating_large_array_stop = time.time()
+	"""
 	tophat = [0]*szA # Generate tophat function to pick out lower frequency structure
 	for i in range(int(sigma)):
 		tophat[i]=1
 		tophat[szA-i-1] = 1
+	"""
+	
+	generating_tophat_start = time.time()
+	#experimental tophat
+	tophat_func = lambda x, sigma, size: 1/(1 + (x/sigma)**12) + 1/(1 + ((x-size)/sigma)**12)
+	tophat = tophat_func(numpy.arange(szA), sigma, szA)
+	generating_tophat_stop = time.time()
+	
 	
 	# Fourier transform large array
+	fft_and_highpassfilter_start = time.time()
 	fftSigToPlot = DFT(SigToPlot) 
 	reducedfftSigToPlot = tophat*fftSigToPlot # Isolate lower frequencies
-	
+	fft_and_highpassfilter_stop = time.time()
 	
 	
 	# Inverse Fourier Transform
+	ifft_start = time.time()
 	BSfftSigToPlot = IDFT(reducedfftSigToPlot)
+	ifft_stop = time.time()
 	
 	#pick out the original signal
+	
+	picking_og_signal_start = time.time()
 	pickORIG = [0]*len(data)
 	if n%2==1: #calculate which part of the array to pick out. if n is odd, pick out the original scan to the left of the center of the array. if n is even, pick out the middle
 		l=n
@@ -152,11 +178,13 @@ def reciprocated_clone_hpf(data, npairs, testing=False, scan_number='(Unknown)')
 		
 	for i in range(len(data)):
 		pickORIG[i] = BSfftSigToPlot[(l*len(data)+i)]
-		
+	picking_og_signal_stop = time.time()
+	
+	dividing_structure_start = time.time()
 	ORIG = numpy.array(data) #Convert back into an array
 	pickORIG =  numpy.array(pickORIG)
 	filtereddata = ORIG/pickORIG # Divide out low freq. structure from data.
-	
+	dividing_structure_stop = time.time()
 	
 	if testing == True:
 		sdir = "C:/Users/drums/Documents/Coding Software/Python/Scripts/New-Analysis-Scheme/oo_analysis/figures/"+ '('+scan_number+')'
@@ -177,20 +205,29 @@ def reciprocated_clone_hpf(data, npairs, testing=False, scan_number='(Unknown)')
 		plotter(pickORIG,savedir = sdir+'recovered data from ifft-ed array'+format)
 		print("Plotting filtered data")
 		plotter(filtereddata,savedir = sdir+'filtered data'+format)
-		
-	"""
-	teller=0
-	for i, val in enumerate(filtereddata):
-		if val.imag<10**(-3):  #NOTE: this restriction on the imaginary part may be too lenient. 
-			teller += 0
-		else:
-			teller += 1
-	if teller==0:
-		filtereddata = filtereddata.real
-	elif teller>0:
-		return (print("\n\n\nERROR: Returned signal of RCHPF should be real\n\n\n"), print(filtereddata), print(sigma))
-	"""
-	return {"filtereddata":filtereddata, "sigma": sigma, "number of clones": npairs}
+	
+	#meta analysis
+	if meta['timeit']:
+		reflecting_time = reflecting_time_stop - reflecting_time_start
+		calculating_tophat_size = calculating_tophat_size_stop - calculating_tophat_size_start
+		reciprocating_array = reciprocating_array_stop - reciprocating_array_start
+		generating_large_array = generating_large_array_stop - generating_large_array_start
+		generating_tophat = generating_tophat_stop - generating_tophat_start
+		fft_and_highpassfilter = fft_and_highpassfilter_stop - fft_and_highpassfilter_start
+		ifft =ifft_stop- ifft_start
+		picking_og_signal = picking_og_signal_stop - picking_og_signal_start
+		dividing_structure = dividing_structure_stop - dividing_structure_start
+		meta['reflecting_time'].append(reflecting_time)
+		meta['calculating_tophat_size'].append(calculating_tophat_size)
+		meta['reciprocating_array'].append(reciprocating_array)
+		meta['generating_large_array'].append(generating_large_array)
+		meta['generating_tophat'].append(generating_tophat)
+		meta['fft_and_highpassfilter'].append(fft_and_highpassfilter)
+		meta['ifft'].append(ifft)
+		meta['picking_og_signal'].append(picking_og_signal)
+		meta['dividing_structure'].append(dividing_structure)
+	
+	return {"filtereddata":filtereddata, "sigma": sigma, "number of clones": npairs, "meta": meta}
 
 def sixorderpoly(signal):
         domain = numpy.arange(len(signal))

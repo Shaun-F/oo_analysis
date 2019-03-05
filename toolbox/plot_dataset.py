@@ -7,7 +7,7 @@ def plotter(scan_number_or_array, savedir = None):
 	
 	whatplot = scan_number_or_array
 	if isinstance(whatplot, int):
-		whatplot = scan_number
+		scan_number = whatplot
 		try:
 			f = h5py.File(b"../data/raw/run1a_data.hdf5", "r")
 			data_file = f['digitizer_log_run1a'][str(scan_number)]
@@ -19,11 +19,11 @@ def plotter(scan_number_or_array, savedir = None):
 			data = data_file[...]
 			domain = numpy.asarray([ fstart + fres*i for i in range(len(data))])
 			
-			if min(whatplot)<0:
-				m = min(whatplot)*1.5
-			elif min(whatplot)>0:
-				m=min(whatplot)*0.75
-			plt.ylim(m, max(whatplot)*1.5)
+			if min(data)<0:
+				m = min(data)*1.5
+			elif min(data)>0:
+				m=min(data)*0.75
+			plt.ylim(m, max(data)*1.5)
 			plt.title("Scan number {0}".format(scan_number))
 			plt.xlabel("frequency (hz)")
 			plt.ylabel("power (normed)")

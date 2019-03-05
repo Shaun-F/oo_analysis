@@ -12,15 +12,13 @@ from toolbox.pulldata import pulldata
 
 def BS(object):
 	# get structures
-	file_name = "../job.param"
-	params = parser(file_name)
-	attributes = dir(object)
+		
 	bskeys = ["filter", "filter_params", "parallel", "signal", "pec_vel"] # take down basic keys, like filter type and parameters
 	bsparams = {key: getattr(object,key) for key in bskeys}
 	datakeys = ["pull_data", "start_scan", "end_scan", "bad_scans", "temp", 'dig_dataset']# take down data keys
 	bsdata = {key: getattr(object,key) for key in datakeys}
 	# run routine
-	deltas = gain.execute(bsparams,bsdata)
+	deltas = gain.execute(bsparams,bsdata, object.meta_analysis)
 	# set bs'ed data in object
 	
 	[setattr(object,key,deltas[key]) for key in deltas.keys()] # may want to nest in original dataset or not

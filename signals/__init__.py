@@ -9,6 +9,7 @@ sys.path.append("..")
 import signals.signal_lib as slib
 import signals.modulation as mod
 from toolbox.dict_to_object import dict_to_object
+import time
 
 
 def generate(object):
@@ -24,9 +25,17 @@ def generate(object):
 	modparams = {key: getattr(object,key) for key in modkeys}
 	
 	# get callable signal
+	signal_gen_start = time.time()
 	signal = slib.signal(sigparams)
+	signal_gen_stop = time.time()
+	
+	#meta analysis
+	meta = {"meta_analysis":object.meta_analysis}
+	
 	# modulate signal for each scan
-	signals = mod.modulation(**modparams, **scanparams_dict, **sigparams).executor()
+	signals = mod.modulation(**modparams, **scanparams_dict, **sigparams, **meta).executor()
+	if object.meta_analysis[0]:
+		object.meta_analysis.append("Signal generation took {0:03f} seconds".format(signal_gen_stop - signal_gen_start))
 	"""
 	for key,sparams in scanparams.__dict__.items(): # python 3.x
 		signals[key] = mod.modulatedsignal(signal,scanparams,modparams)

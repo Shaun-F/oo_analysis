@@ -27,7 +27,12 @@ def get_squid_dataset(timestamp):
 				else:
 					for i in np.arange(15):
 						minute = int(minute) #turn into number
-						if (x[14:16]==str(minute-i) or x[14:16]==str(minute+i)):
+						minuteminus = str(minute-i); minuteplus = str(minute+i);
+						if len(minuteminus)==1:
+							minuteminus = "0" + minuteminus
+						if len(minuteplus)==1:
+							minuteplus = "0" + minuteplus
+						if (x[14:16]==minuteminus or x[14:16]==minuteplus):
 							#Find closest value
 							closest.append(x)
 	if len(closest)==1:
