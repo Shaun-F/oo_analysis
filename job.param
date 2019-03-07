@@ -14,7 +14,7 @@ nbins=256
 
 pull_data='true'
 start_scan=516000
-end_scan=517000
+end_scan=516049
 bad_scans="file path"
 restype="MR"
 

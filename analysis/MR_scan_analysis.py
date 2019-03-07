@@ -85,6 +85,7 @@ def MR_scan_analysis(scan, **params):
 	axion_power_start = time.time()
 	dfszaxion = axion_power(params["axion_scan"],axion_RMF, nbins=nbins, res=res)
 	axion_power_stop = time.time()
+	
 	try:
 		#Calculate boosted signal
 		modulation_start = time.time()
@@ -146,9 +147,11 @@ def MR_scan_analysis(scan, **params):
 		trans_power_deltas_fft = DFT(trans_power_deltas)
 		DFSZshape_fft = DFT(DFSZshape)
 		dfszpow = dfszaxion
+		trans_power_deltas = np.pad(trans_power_deltas, len(axblank), 'constant', constant_values = 0)
 		signal_data_convolution = convolve_two_arrays(trans_power_deltas, DFSZshape) 
 		convolution_length = len(signal_data_convolution)
 		convolutions_stop = time.time()
+		
 		
 		axion_rmfs_start = time.time()
 		axion_rmfs = []
@@ -156,7 +159,7 @@ def MR_scan_analysis(scan, **params):
 		for i in np.arange(scan_length+2*n_signal_width)-1:
 			axion_rmfs.append(axion_RMF + binwidth*(i-middlefreqpos-n_signal_width))
 		axion_rmfs_stop = time.time()
-			
+
 		#find maximum likelihood
 
 		max_likelihood_arith_start = time.time()
@@ -164,6 +167,7 @@ def MR_scan_analysis(scan, **params):
 		Aml_num = signal_data_convolution*(1/(2*sigma_w**2))
 		lorentz_squared = cav_trans_mod**2
 		model_squared = [i**2 for i in DFSZshape] #DFSZshape**2
+		lorentz_squared = np.pad(lorentz_squared, len(axblank), 'constant', constant_values=0)
 		conv_Aml_den = convolve_two_arrays(lorentz_squared, model_squared)
 		Aml_den = conv_Aml_den*(1/(2*sigma_w**2))
 		model_excess_sqrd = Aml_den
@@ -205,14 +209,16 @@ def MR_scan_analysis(scan, **params):
 
 
 		#consolidate statisitics
-		nscans = np.append(axblank, np.append(nscans,axblank))
-		SNR = np.append(axblank, np.append(SNR, axblank))
-		noise_power = np.append(axblank, np.append(noise_power, axblank))
-		power_deviation = np.append(axblank, np.append(power_deltas, axblank)) #weighted_deltas
+		nscans = np.pad(nscans, len(axblank), 'constant', constant_values = 0)
+		deltas = np.pad(deltas, len(axblank), 'constant', constant_values=0)
+		SNR = np.pad(SNR, len(axblank), 'constant', constant_values = 0)
+		power_deviation = np.pad(power_deltas, len(axblank), 'constant', constant_values = 0) #weighted_deltas
 		sig_sens_stop = time.time()
 	except (KeyError, ValueError):
 		print("\n\nError with scan {0}".format(scan_number))
 		raise
+		
+		
 	if submeta['timeit']:
 		submeta = params['submeta']
 		submeta['constants'].append(constants_stop - constants_start)
@@ -227,9 +233,6 @@ def MR_scan_analysis(scan, **params):
 		submeta['max_likelihood_arith'].append(max_likelihood_arith_stop - max_likelihood_arith_start)
 		submeta['max_likelihood'].append(max_likelihood_stop - max_likelihood_start)
 		submeta['sig_sens'].append(sig_sens_stop - sig_sens_start)
-	
-	
-	
 	results = {'deltas':deltas,
 				'scan_id':scan_number,
 				'nscans':nscans,
@@ -244,7 +247,7 @@ def MR_scan_analysis(scan, **params):
 				'sensitivity_power':sensitivity_power,
 				'sensitivity_coupling':sensitivity_coupling,
 				'axion_frequencies':axion_rmfs, #in Hz
-				'power_deviation':power_deviation,
+				'power_deviation':power_deviation.real,
 				'sigma':sigma
 				}
 	return results

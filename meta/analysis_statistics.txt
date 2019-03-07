@@ -1,63 +1,63 @@
-Collecting bad scans took 0.001 seconds
-Collecting bad scans took 0.001 seconds
-Signal modulation took, on average, 0.093436 seconds
+Collecting bad scans took 0.000 seconds
+Collecting bad scans took 0.000 seconds
+Signal modulation took, on average, 1.590045 seconds
 Signal generation took 0.000000 seconds
 Pulling/creating grand spectra group took 0.000000 seconds
 
 
 ########## averages of single scan analysis ##########
-average time to calculate constants in single scan analysis is 0.000322
-average time to calculate axion power in single scan analysis is 0.000322
-average time to perform signal modulation in single scan analysis is 0.079098
-average time to perform background subtraction in single scan analysis is 0.088310
+average time to calculate constants in single scan analysis is 0.000000
+average time to calculate axion power in single scan analysis is 0.000000
+average time to perform signal modulation in single scan analysis is 0.079392
+average time to perform background subtraction in single scan analysis is 0.893693
 average time to consolidate bin resolution in single scan analysis is 0.000000
-average time to calculate cavity lorentzian in single scan analysis is 0.000322
-average time to calculate single bin statistics in single scan analysis is 0.000322
-average time to calculate convolutions in single scan analysis is 0.191241
-average time to calculate all axion frequencies in single scan analysis is 0.003865
-average time to carry out maximum likelihood arithmetic (sums, multiplications) in single scan analysis is 0.110005
-average time to calculate maximum likelihood in single scan analysis is 0.002255
-average time to calculate sensitivities and significances in single scan analysis is 0.000966
+average time to calculate cavity lorentzian in single scan analysis is 0.000000
+average time to calculate single bin statistics in single scan analysis is 0.000000
+average time to calculate convolutions in single scan analysis is 0.237249
+average time to calculate all axion frequencies in single scan analysis is 0.000000
+average time to carry out maximum likelihood arithmetic (sums, multiplications) in single scan analysis is 0.199902
+average time to calculate maximum likelihood in single scan analysis is 0.000000
+average time to calculate sensitivities and significances in single scan analysis is 0.010254
 
 
 ########## Totals of single scan analysis ##########
-total time to calculate constants in single scan analysis is 0.031236
-total time to calculate axion power in single scan analysis is 0.031243
-total time to perform signal modulation in single scan analysis is 7.672490
-total time to perform background subtraction in single scan analysis is 8.566029
+total time to calculate constants in single scan analysis is 0.000000
+total time to calculate axion power in single scan analysis is 0.000000
+total time to perform signal modulation in single scan analysis is 0.079392
+total time to perform background subtraction in single scan analysis is 0.893693
 total time to consolidate bin resolution in single scan analysis is 0.000000
-total time to calculate cavity lorentzian in single scan analysis is 0.031242
-total time to calculate single bin statistics in single scan analysis is 0.031242
-total time to calculate convolutions in single scan analysis is 18.550365
-total time to calculate all axion frequencies in single scan analysis is 0.374912
-total time to carry out maximum likelihood arithmetic (sums, multiplications) in single scan analysis is 10.670474
-total time to calculate maximum likelihood in single scan analysis is 0.218701
-total time to calculate sensitivities and significances in single scan analysis is 0.093718
+total time to calculate cavity lorentzian in single scan analysis is 0.000000
+total time to calculate single bin statistics in single scan analysis is 0.000000
+total time to calculate convolutions in single scan analysis is 0.237249
+total time to calculate all axion frequencies in single scan analysis is 0.000000
+total time to carry out maximum likelihood arithmetic (sums, multiplications) in single scan analysis is 0.199902
+total time to calculate maximum likelihood in single scan analysis is 0.000000
+total time to calculate sensitivities and significances in single scan analysis is 0.010254
 
 
 ########## Averages of background subtraction ##########
 average time to reflect scan is 0.000000
-average time to calculate tophat size is 0.000161
+average time to calculate tophat size is 0.000000
 average time to calculated reciprocated signal is 0.000000
 average time to generate large array of clones is 0.000000
-average time to generate tophat is 0.000805
-average time to fft and multiply by tophat is 0.041087
-average time to inverse fft is 0.039167
+average time to generate tophat is 0.000000
+average time to fft and multiply by tophat is 0.549746
+average time to inverse fft is 0.032974
 average time to extract original signal is 0.000000
-average time to divide out structure is 0.000322
+average time to divide out structure is 0.000000
 
 
 ########## Totals of background subtraction ##########
 total time to reflect scan is 0.000000
-total time to calculate tophat size is 0.015622
+total time to calculate tophat size is 0.000000
 total time to calculated reciprocated signal is 0.000000
 total time to generate large array of clones is 0.000000
-total time to generate tophat is 0.078106
-total time to fft and multiply by tophat is 3.985404
-total time to inverse fft is 3.799201
+total time to generate tophat is 0.000000
+total time to fft and multiply by tophat is 0.549746
+total time to inverse fft is 0.032974
 total time to extract original signal is 0.000000
-total time to divide out structure is 0.031247
+total time to divide out structure is 0.000000
 
 
-Total signal generation time is 9.063289 seconds
-Total analysis time is 49.880499 seconds
+Total signal generation time is 1.590045 seconds
+Total analysis time is 115.759978 seconds

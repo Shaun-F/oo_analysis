@@ -1,17 +1,22 @@
 def initialization(chunk):
 	#Initialize all datasets with empty containers
 	import numpy
-	datanames=['sigma_w', 'optimal_weight_sum','SNR', 'noise_power', 'model_excess_sqrd','axion_fit', 'axion_fit_uncertainty', 'axion_fit_significance', 'sensitivity_power', 'sensitivity_coupling', 'axion_frequencies', 'power_deviation', 'nscans']
+	datanames_zeroed=['sigma_w', 'optimal_weight_sum','SNR', 'noise_power', 'model_excess_sqrd','axion_fit', 'axion_fit_significance', 'axion_frequencies', 'power_deviation', 'nscans']
 	stringnames=['scans', 'scans_in', 'scans_out', 'last_change']
-	
-	for i in datanames:
+	datanames_inf = [ 'axion_fit_uncertainty', 'sensitivity_power', 'sensitivity_coupling']
+	for i in datanames_zeroed:
 		if i not in chunk.keys():
-			chunk.create_dataset(name=str(i), dtype=numpy.float64, data=numpy.asarray([], dtype='byte'), maxshape=(None,))
+			chunk.create_dataset(name=str(i), dtype=numpy.float64, data=numpy.asarray([0]*298, dtype='byte'), maxshape=(None,))
+		else:
+			pass
+	for i in datanames_inf:
+		if i not in chunk.keys():
+			chunk.create_dataset(name=str(i), dtype=numpy.float64, data=numpy.asarray([numpy.inf]*298), maxshape=(None,))
 		else:
 			pass
 	for i in stringnames:
 		if i not in chunk.keys():
-			chunk.create_dataset(name=str(i), dtype="S10", data=numpy.asarray([b"initval"]), maxshape=(None,))
+			chunk.create_dataset(name=str(i), dtype="S10", data=numpy.asarray([b"initval"]*256), maxshape=(None,))
 	
 	
 	

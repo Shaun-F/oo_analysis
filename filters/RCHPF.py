@@ -124,7 +124,7 @@ def reciprocated_clone_hpf(data, npairs, testing=False, scan_number='(Unknown)',
 	"""
 	
 	struc_length = 2*(numpy.absolute(argmax-argmin))
-	sigmamult = (2*numpy.pi)/(struc_length)*30*10**2
+	sigmamult = (2*numpy.pi)/(struc_length)*5*10**2
 	sigma = numpy.ceil(sigmamult*(2*n+1))
 	calculating_tophat_size_stop = time.time()
 	
@@ -207,25 +207,26 @@ def reciprocated_clone_hpf(data, npairs, testing=False, scan_number='(Unknown)',
 		plotter(filtereddata,savedir = sdir+'filtered data'+format)
 	
 	#meta analysis
-	if meta['timeit']:
-		reflecting_time = reflecting_time_stop - reflecting_time_start
-		calculating_tophat_size = calculating_tophat_size_stop - calculating_tophat_size_start
-		reciprocating_array = reciprocating_array_stop - reciprocating_array_start
-		generating_large_array = generating_large_array_stop - generating_large_array_start
-		generating_tophat = generating_tophat_stop - generating_tophat_start
-		fft_and_highpassfilter = fft_and_highpassfilter_stop - fft_and_highpassfilter_start
-		ifft =ifft_stop- ifft_start
-		picking_og_signal = picking_og_signal_stop - picking_og_signal_start
-		dividing_structure = dividing_structure_stop - dividing_structure_start
-		meta['reflecting_time'].append(reflecting_time)
-		meta['calculating_tophat_size'].append(calculating_tophat_size)
-		meta['reciprocating_array'].append(reciprocating_array)
-		meta['generating_large_array'].append(generating_large_array)
-		meta['generating_tophat'].append(generating_tophat)
-		meta['fft_and_highpassfilter'].append(fft_and_highpassfilter)
-		meta['ifft'].append(ifft)
-		meta['picking_og_signal'].append(picking_og_signal)
-		meta['dividing_structure'].append(dividing_structure)
+	if 'timeit' in meta.keys():
+		if meta['timeit']:
+			reflecting_time = reflecting_time_stop - reflecting_time_start
+			calculating_tophat_size = calculating_tophat_size_stop - calculating_tophat_size_start
+			reciprocating_array = reciprocating_array_stop - reciprocating_array_start
+			generating_large_array = generating_large_array_stop - generating_large_array_start
+			generating_tophat = generating_tophat_stop - generating_tophat_start
+			fft_and_highpassfilter = fft_and_highpassfilter_stop - fft_and_highpassfilter_start
+			ifft =ifft_stop- ifft_start
+			picking_og_signal = picking_og_signal_stop - picking_og_signal_start
+			dividing_structure = dividing_structure_stop - dividing_structure_start
+			meta['reflecting_time'].append(reflecting_time)
+			meta['calculating_tophat_size'].append(calculating_tophat_size)
+			meta['reciprocating_array'].append(reciprocating_array)
+			meta['generating_large_array'].append(generating_large_array)
+			meta['generating_tophat'].append(generating_tophat)
+			meta['fft_and_highpassfilter'].append(fft_and_highpassfilter)
+			meta['ifft'].append(ifft)
+			meta['picking_og_signal'].append(picking_og_signal)
+			meta['dividing_structure'].append(dividing_structure)
 	
 	return {"filtereddata":filtereddata, "sigma": sigma, "number of clones": npairs, "meta": meta}
 

@@ -2,7 +2,8 @@
 import datetime as dt
 import numpy as np
 import sys; sys.path.append("..")
-from toolbox.add_to_dataset import addtodataset, subtractfromdataset
+from toolbox.add_to_dataset import * #addtodataset, subtractfromdataset, assign_newdata
+import numba; from numba import njit
 
 class scan_cl(object):
 	"""
@@ -18,7 +19,6 @@ class scan_cl(object):
 		"""
 		from toolbox.grand_spectra_init import initialization
 		self.op = op
-		
 		self.scan_scan_number = scid
 		self.scan_nscans = scan["nscans"]
 		self.scan_sigma_w = scan["sigma_w"]
@@ -34,7 +34,10 @@ class scan_cl(object):
 		self.scan_axion_frequencies = scan["axion_frequencies"]
 		
 		#setup class definitions for chunk 
-		initialization(chunk)
+		
+		initialization(chunk) #Check if grand spectra group needs to be created
+		self.chunk_axion_frequencies = chunk["axion_frequencies"][...]
+		indices = self.frequency_index_matcher()
 		self.chunk_scan_number = chunk["scans"][...]
 		self.chunk_nscans = chunk["nscans"][...]
 		self.chunk_sigma_w = chunk["sigma_w"][...]
@@ -47,12 +50,10 @@ class scan_cl(object):
 		self.chunk_axion_fit_uncertainty = chunk["axion_fit_uncertainty"][...]
 		self.chunk_sensitivity_power = chunk["sensitivity_power"][...]
 		self.chunk_sensitivity_coupling = chunk["sensitivity_coupling"][...]
-		self.chunk_axion_frequencies = chunk["axion_frequencies"][...]
-		
+	
 		#initialize attribute arrays to be populated (coadded)
-		if self.op=="add":
+		if self.op=="+":
 			chunk = initialize_datapoints(chunk, scan, self.frequency_index_matcher()) 
-			
 		
 		#Initialize any attributes not previously defined
 		self.chunk_scan_number = np.sort(chunk["scans"][...])
@@ -73,10 +74,10 @@ class scan_cl(object):
 		"""
 		Function returns the indices of the scan and chunk where the frequencies match, up to a tolerance. First index is chunk frequencies and second index is scan frequencies
 		"""
-		tol = 1 # Hz
+		tol = 100 # Hz
 		cfreqs = self.chunk_axion_frequencies
 		sfreqs = self.scan_axion_frequencies
-		two_indices = np.array([[],[]])
+		two_indices = np.array([[],[]]) #first array is indices in chunk, second array is indices in scan
 
 		
 		si=None
@@ -96,7 +97,8 @@ class scan_cl(object):
 				if np.abs(sfreqs[0]-cfreq)<=tol:
 					ci = cidx
 					break
-
+		
+		
 		if si!=None:
 			for sidx in range(len(sfreqs)):
 				#Iterate over sfreqs indices and insert the pair of indices, whose frequencies are within 'tol' of each other, into matching_indices
@@ -106,24 +108,23 @@ class scan_cl(object):
 					#do nothing
 					pass
 				elif float(sfreqs[sidx]-cfreqs[sidx-si])<=tol:
-					np.insert(two_indices, 0, [sidx-si,sidx], axis=1)
+					two_indices = np.insert(two_indices, 0, [sidx+ci, sidx], axis=1)
 		
 		elif ci!=None:
 			for sidx in np.arange(len(sfreqs)):
-				if (np.argwhere(cfreqs==cfreqs[-1])[0][0]-ci-sidx)<0:
+				if (len(cfreqs)-1-ci-sidx)<0:
 					pass #Do nothing, since out of range of cfreq
-				elif not (isinstance(sfreqs[sidx-ci+1], float) and isinstance(sfreqs[sidx-ci+1], int)) or not (isinstance(cfreqs[sidx], float) and isinstance(cfreqs[sidx], int)):
+				elif not ((isinstance(sfreqs[sidx-ci+1], float) or isinstance(sfreqs[sidx-ci+1], int)) or (isinstance(cfreqs[sidx], float) or isinstance(cfreqs[sidx], int))):
 					#do nothing
 					pass
 				elif np.abs(sfreqs[sidx] - cfreqs[sidx+ci])<=tol:
-					np.insert(two_indices, 0, [sidx+ci, sidx], axis=1)
+					two_indices = np.insert(two_indices, 0, [sidx+ci, sidx], axis=1)
 		else:
 			return two_indices
 		#reorder nested lists into accending order
 		two_indices[0].sort(); two_indices[1].sort()
-		
 		#first index is cfreqs, second is sfreqs
-		
+		two_indices = [list(map(int, two_indices[0])), list(map(int, two_indices[1]))] # convert elements to integers for indexing
 		return two_indices
 	
 	def axion_fit_consolidation(self):
@@ -134,7 +135,7 @@ class scan_cl(object):
 			if optimal_weight_sum[i]==0 and model_excess_sqrd[i]==0:
 				axion_fit[i]=0
 			elif optimal_weight_sum[i]!=0 and model_excess_sqrd[i]==0:
-				axion_fit[i]=float("inf")
+				axion_fit[i]=np.inf
 			else:
 				axion_fit[i]=optimal_weight_sum[i]/model_excess_sqrd[i]
 		return axion_fit
@@ -179,7 +180,7 @@ class scan_cl(object):
 		sidx = matching_index[1]
 		for i, val in enumerate(cidx):
 
-			if op=="+":
+			if self.op=="+":
 				MES[val] = MES[val] + sMES[sidx[i]]
 			else:
 				MES[val] = MES[val] - sMES[sidx[i]]
@@ -209,9 +210,9 @@ class scan_cl(object):
 		for i, val in enumerate(cidx):
 			
 			if self.op=="+":
-				nscans[val] = nscans[val] + scan_nscans[sidx[i]]
+				nscans[val] = nscans[val] + scan_nscan[sidx[i]]
 			else:
-				nscans[val] = nscans[val] - scan_nscans[sidx[i]]
+				nscans[val] = nscans[val] - scan_nscan[sidx[i]]
 		return nscans
 		
 	def optimal_weight_sum_consolidation(self):
@@ -234,14 +235,13 @@ class scan_cl(object):
 		cidx = indices[0]
 		sidx = indices[1]
 		for i, val in enumerate(cidx):
-
 			if self.op=="+":
 				power_deviation[val] = power_deviation[val] + spower_deviation[sidx[i]]
 			else:
 				power_deviation[val] = power_deviation[val] - spower_deviation[sidx[i]]
 		return power_deviation
 	
-	def power_senstivity_consolidation(self):
+	def power_sensitivity_consolidation(self):
 		indices = self.frequency_index_matcher()
 		sensitivity = self.chunk_sensitivity_power
 		ssensitivity = self.scan_sensitivity_power
@@ -311,6 +311,71 @@ class scan_cl(object):
 		chunk['sensitivity_coupling'][...] = self.sensitivity_coupling
 		chunk['axion_frequencies'][...] = self.chunk_axion_frequencies
 		
+
+		
+
+def add_subtract_scan(add_subtract, scan, chunk, scan_id):
+	"""
+	Parameters
+		add_subtract: ('add', 'subtract') Determines what to do with scan
+		scan: (dictionary) items to add to grand spectra, including deltas
+		chunk: (h5py dataset) dataset to add to.
+		scan_id: (
+	"""
+	#initialize scan object	
+	if add_subtract == "add":
+		op = "+"
+	elif add_subtract == "subtract":
+		op = "-"
+	else:
+		return "Error: combining operation not recognized. Available operations are 'add' and 'subtract'"
+	scan_obj = scan_cl(scan=scan, scid = scan_id, chunk=chunk, op=op)
+	
+	#Running initiliazation procedure for chunks, i.e. create missing arrays.
+	#chunk = initialization(chunk) 									Not currently using.
+	
+	if op=="+" and (scan_id in chunk["scans_in"]):
+		phrase = "scan " + str(scan_id) + " already added"
+		print(phrase)
+		return phrase
+	elif op=="-" and (scan_id in chunk["scans_out"]):
+		phrase = "scan " + str(scan_id) + " already subtracted"
+		print(phrase)
+		return phrase
+	
+	corrupt_scan=False
+	if type(scan) is str:
+		corrupt_scan = True
+		add_subtract = 'ommit'
+		op = nil
+	if not corrupt_scan:
+		assign_newdata(chunk['optimal_weight_sum'], scan_obj.optimal_weight_sum_consolidation())
+		assign_newdata(chunk['model_excess_sqrd'], scan_obj.model_excess_sqrd_consolidation())
+		assign_newdata(chunk['nscans'], scan_obj.nscan_consolidation())
+		assign_newdata(chunk['SNR'], scan_obj.SNR_consolidation())
+		assign_newdata(chunk['axion_fit_uncertainty'], scan_obj.sigma_A_consolidation())
+		assign_newdata(chunk['power_deviation'], scan_obj.power_deviation_consolidation()) #formerly weighted deltas
+		assign_newdata(chunk['sensitivity_coupling'], scan_obj.coupling_sensitivity_consolidation())
+		assign_newdata(chunk['sensitivity_power'], scan_obj.power_sensitivity_consolidation())
+		assign_newdata(chunk['noise_power'], scan_obj.noise_power_consolidation())
+		assign_newdata(chunk['axion_fit'], scan_obj.axion_fit_consolidation())
+		assign_newdata(chunk['axion_fit_significance'], scan_obj.axion_fit_significance_consolidation())
+		addtodataset(chunk['scans'], scan_id)
+
+	if add_subtract=='add':
+		addtodataset(chunk['scans_in'], scan_id)
+		subtractfromdataset(chunk['scans_out'], array_or_string=scan_id)
+	elif add_subtract=="subtract":
+		addtodataset(chunk['scans_out'], scan_id)
+		subtractfromdataset(chunk['scans_in'], array_or_string=scan_id)
+	
+	lastcalc = dt.datetime.now()
+	lastcalc = lastcalc.strftime('%Y-%m-%d %H:%M:%S')
+	chunk.attrs["last_change"] = str(lastcalc)
+	
+	
+	
+	
 def initialize_datapoints(chunk, scan, matched_freqs):
 
 	#Determine the frequencies and indices of the scan that dont intersect the chunk frequencies.
@@ -350,7 +415,7 @@ def initialize_datapoints(chunk, scan, matched_freqs):
 	if left_hanging:
 		pos = 0
 		for i in leftnaligned_indices:
-			addtodataset(chunk["sensitivity_coupling"], 0, position=pos)
+			addtodataset(chunk["sensitivity_coupling"], np.inf, position=pos)
 			addtodataset(chunk["axion_fit"], 0, position=pos)
 			addtodataset(chunk["axion_fit_uncertainty"], np.inf, position=pos)
 			addtodataset(chunk['model_excess_sqrd'], 0, position=pos)
@@ -363,7 +428,7 @@ def initialize_datapoints(chunk, scan, matched_freqs):
 	if right_hanging:
 		pos=len(sfreqs)-1
 		for i in rightnaligned_indices:
-			addtodataset(chunk["sensitivity_coupling"], 0, position=pos)
+			addtodataset(chunk["sensitivity_coupling"], np.inf, position=pos)
 			addtodataset(chunk["axion_fit"], 0, position=pos)
 			addtodataset(chunk["axion_fit_uncertainty"], np.inf, position=pos)
 			addtodataset(chunk['model_excess_sqrd'], 0, position=pos)
@@ -375,64 +440,3 @@ def initialize_datapoints(chunk, scan, matched_freqs):
 			addtodataset(chunk['axion_frequencies'], sfreqs[i], position=pos)
 		
 	return chunk
-		
-
-def add_subtract_scan(add_subtract, scan, chunk, scan_id):
-	"""
-	Parameters
-		add_subtract: ('add', 'subtract') Determines what to do with scan
-		scan: (dictionary) items to add to grand spectra, including deltas
-		chunk: (h5py dataset) dataset to add to.
-		scan_id: (
-	"""
-	#initialize scan object	
-	if add_subtract == "add":
-		op = "+"
-	elif add_subtract == "subtract":
-		op = "-"
-	else:
-		return "Error: combining operation not recognized. Available operations are 'add' and 'subtract'"
-	scan_obj = scan_cl(scan=scan, scid = scan_id, chunk=chunk, op=op)
-	
-	#Running initiliazation procedure for chunks, i.e. create missing arrays.
-	#chunk = initialization(chunk) 									Not currently using.
-	
-	if op=="+" and (scan_id in chunk["scans_in"]):
-		phrase = "scan " + str(scan_id) + " already added"
-		print(phrase)
-		return phrase
-	elif op=="-" and (scan_id in chunk["scans_out"]):
-		phrase = "scan " + str(scan_id) + " already subtracted"
-		print(phrase)
-		return phrase
-	
-	corrupt_scan=False
-	if type(scan) is str:
-		corrupt_scan = True
-		add_subtract = 'ommit'
-		op = nil
-	if not corrupt_scan:
-		chunk['nscans'][...] = scan_obj.nscan_consolidation()
-		chunk['SNR'][...] = scan_obj.SNR_consolidation()
-		chunk['optimal_weight_sum'][...] = scan_obj.optimal_weight_sum_consolidation()
-		chunk['noise_power'][...] = scan_obj.noise_power_consolidation()
-		chunk['model_excess_sqrd'][...] = scan_obj.model_excess_sqrd_consolidation()
-		chunk['axion_fit_uncertainty'][...] = scan_obj.sigma_A_consolidation()
-		chunk['axion_fit'][...] = scan_obj.axion_fit_consolidation()
-		chunk['power_deviation'][...] = scan_obj.power_deviation_consolidation() #formerly weighted deltas
-		chunk['axion_fit_significance'][...] = scan_obj.axion_fit_significance_consolidation()
-		chunk['sensitivity_coupling'][...] = scan_obj.coupling_sensitivity_consolidation()
-		chunk['sensitivity_power'][...] = scan_obj.power_senstivity_consolidation()
-	addtodataset(chunk['scans'], scan_id)
-
-	if add_subtract=='add':
-		addtodataset(chunk['scans_in'], scan_id)
-		subtractfromdataset(chunk['scans_out'], array_or_string=scan_id)
-	elif add_subtract=="subtract":
-		addtodataset(chunk['scans_out'], scan_id)
-		subtractfromdataset(chunk['scans_in'], array_or_string=scan_id)
-	
-	lastcalc = dt.datetime.now()
-	lastcalc = lastcalc.strftime('%Y-%m-%d %H:%M:%S')
-	chunk.attrs["last_change"] = str(lastcalc)
-	

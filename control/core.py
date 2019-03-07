@@ -17,9 +17,11 @@ import argparse
 ############# Argument parsing
 P = argparse.ArgumentParser(description="Main execution file for oo_analysis")
 P.add_argument('-t', '--timeit', action='store', default=False, help='Argument specifies whether to time all the subprocesses of the analysis')
+P.add_argument('-r', '--reset', action='store', default=False, help="Argument specifies whether to delete the grand spectra and start from scratch. Default is False")
 args = P.parse_args()
 
 timeit = args.timeit
+reset = args.reset
 #############
 
 # create main structure
@@ -43,7 +45,10 @@ class core_analysis():
 		pulldata_stop = time.time()
 		
 		self.output_file = "../output/grand_spectra.dat"
-		print("Loading data successful. It took {0:0.3f} seconds. Beginning analysis of {1} scans".format((pulldata_stop-pulldata_start), len(self.dig_dataset)))
+		print("Loading data successful. It took {0:0.3f} seconds. Beginning analysis of {1} scans".format((pulldata_stop-pulldata_start), len(self.keys)))
+		
+		if reset and 'grand_spectra_run1a' in self.h5py_file.keys():
+			del self.h5py_file['grand_spectra_run1a']
 		
         # derive necessary experiment data structures (put into dig_dataset)
 		#Populate parameter dict's with dataset attributes.

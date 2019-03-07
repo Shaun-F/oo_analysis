@@ -19,7 +19,7 @@ def addtodataset(dataset, array_or_string, position = None):
 		else:
 			ds = numpy.insert(ds, position, add.encode()) #insert into array at position
 	#return modified data to dataset
-	dataset.resize(ds.shape[0], axis=0)
+	dataset.resize(ds.shape)
 	dataset[...]=ds
 	
 def subtractfromdataset(dataset, array_or_string=None, position=None):
@@ -37,9 +37,22 @@ def subtractfromdataset(dataset, array_or_string=None, position=None):
 			ds = numpy.delete(ds, [position])
 		else:
 			return "Error: Please specify an item to remove or an index"
-		dataset.resize(ds.shape[0], axis=0)
+		dataset.resize(ds.shape)
 		dataset[...]=ds
 	except IndexError:
+		raise
+		
+def assign_newdata(dataset, data):
+	"""
+	Function reassigns the data array in a h5py dataset.
+	NOTE: This overwrites all data in a dataset with the new data
+	"""
+	data = numpy.asarray(data)
+	try:
+		dataset.resize(data.shape)
+		dataset[...] = data
+	
+	except (IndexError, Keyerror, MemoryError):
 		raise
 	
 	

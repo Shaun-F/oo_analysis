@@ -82,7 +82,7 @@ class analyser(object):
 			#if deltas dispersion is factor of 3 larger than radiometer equation, cut it.
 			#Radiometer dispersion: Tsys/root(B*t) B==bandwidth, t==integration time
 			scan = self.dig_dataset[key]
-			int_time = 100.0026931 #second             #should probably pull this from scan parameters
+			int_time = scan.attrs['integration_time'] #second
 			bandwidth = float(scan.attrs["frequency_resolution"])*10**6 #Hz
 			Tsys = self.Tsys[key]
 			
@@ -100,14 +100,13 @@ class analyser(object):
 				cut = True
 				cut_reason = "Dispersion compared to radiometer dispersion. Too Small"
 				print("Background subtraction failed for scan {0}".format(key))
+			
 			scan.attrs["cut"] = cut
 			scan.attrs["cut_reason"] = cut_reason
-			
-		
 			#add remaining scan to grand_spectra via coaddition
-			if scan.attrs['cut'] == False:
+			if not scan.attrs['cut']:
 				add_subtract_scan('add', self.analysis_results[key], self.grand_spectra_group, key)
-			elif scan.attrs['cut'] == True:
+			elif scan.attrs['cut']:
 				self.ncut += 1
 				add_subtract_scan('subtract', self.analysis_results[key], self.grand_spectra_group, key)
 		iteration_stop = time.time()
