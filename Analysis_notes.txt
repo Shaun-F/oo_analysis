@@ -1,0 +1,9 @@
+Current implementations thats oo_analysis uses:
+	- mpi4py
+		-- Uses both the MPI windows implementation and the mpi4py python package
+	
+	- pyopencl
+		-- uses the reikna package to perform ffts
+		-- need opencl implementation
+	
+	

@@ -51,9 +51,9 @@ def MR_scan_analysis(scan, **params):
 	#Write exceptions here (reason not to include scans in Run1A)
 	
 	constants_start = time.time()
-	fstart = digitizer_scan.attrs["start_frequency"]
-	fstop = digitizer_scan.attrs["stop_frequency"]
-	res = digitizer_scan.attrs["frequency_resolution"]
+	fstart = eval(digitizer_scan.attrs["start_frequency"])
+	fstop = eval(digitizer_scan.attrs["stop_frequency"])
+	res = eval(digitizer_scan.attrs["frequency_resolution"])
 	freqs = np.asarray([fstart + res*i for i in np.arange(start=0, stop=((fstop-fstart)/res))])
 
 	binwidth = float(res)*10**6 # in Hz
@@ -63,7 +63,6 @@ def MR_scan_analysis(scan, **params):
 	kT = k*Tsys 
 	BkT = binwidth*kT
 	constants_stop = time.time()
-	
 	
 	data = digitizer_scan[...]
 

@@ -1,5 +1,8 @@
 import numpy 
+import numba; from numba import jit, njit
 
+
+@jit
 def addtodataset(dataset, array_or_string, position = None):
 	"""
 	First resize the dataset to accommodate more data then assign values to resized dataset
@@ -22,6 +25,7 @@ def addtodataset(dataset, array_or_string, position = None):
 	dataset.resize(ds.shape)
 	dataset[...]=ds
 	
+
 def subtractfromdataset(dataset, array_or_string=None, position=None):
 	ds = dataset[...]
 	sub = array_or_string
@@ -29,7 +33,8 @@ def subtractfromdataset(dataset, array_or_string=None, position=None):
 	try:
 		if array_or_string!=None:
 			if not (isinstance(sub, str) or isinstance(sub, bytes)):
-				ds = numpy.delete(ds, numpy.argwhere(ds==sub))
+				for i in sub:
+					ds = numpy.delete(ds, numpy.argwhere(ds==i))
 			else:
 				sub = sub.encode()
 				ds = numpy.delete(ds, numpy.argwhere(ds==sub))
@@ -42,6 +47,7 @@ def subtractfromdataset(dataset, array_or_string=None, position=None):
 	except IndexError:
 		raise
 		
+
 def assign_newdata(dataset, data):
 	"""
 	Function reassigns the data array in a h5py dataset.

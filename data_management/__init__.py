@@ -13,11 +13,11 @@ def write_out(dataset,path):
 	"""
 	#data = h5py.File(path, 'w')
 	# use write functioins to put grand spectra to file
-	data = dataset['power_deviation'][...]
 	attributes = {key: dataset.attrs[key] for key in dataset.attrs}
 
 	output_file = open(path, 'wb')
-	pickle.dump(data, output_file)
+	for key in dataset.attrs:
+		pickle.dump(dataset[key][...], output_file)
 	pickle.dump(attributes, output_file)
 
 	output_file.close()

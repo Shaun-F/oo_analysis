@@ -45,40 +45,45 @@ stop = start + nbins*df
 bins = [start + df*i for i in range(nbins)]
 
 def DFT(inputsignal):
-    signal = numpy.array(inputsignal, dtype = numpy.complex128)
-    device = cl.get_platforms()[1].get_devices(device_type=cl.device_type.GPU)
-    ctx = cl.Context(device)
-    queue = cl.CommandQueue(ctx)
-    
-    api = cluda.ocl_api()
-    thr = api.Thread(queue)
-    signal_dev = thr.to_device(signal)
-    fft_res_dev = thr.array(signal.shape, dtype = numpy.complex128)
-    
-    FFT = fftcl(signal_dev).compile(thr)
-    FFT(fft_res_dev, signal_dev)
-    
-    res = fft_res_dev.get()
-    return res
+	"""
+	signal = numpy.array(inputsignal, dtype = numpy.complex128)
+	device = cl.get_platforms()[1].get_devices(device_type=cl.device_type.GPU)
+	ctx = cl.Context(device)
+	queue = cl.CommandQueue(ctx)
+
+	api = cluda.ocl_api()
+	thr = api.Thread(queue)
+	signal_dev = thr.to_device(signal)
+	fft_res_dev = thr.array(signal.shape, dtype = numpy.complex128)
+
+	FFT = fftcl(signal_dev).compile(thr)
+	FFT(fft_res_dev, signal_dev)
+
+	res = fft_res_dev.get()
+	"""
+	res = numpy.fft.fftn(inputsignal)
+	return res
 
 def IDFT(inputsignal):
-    
-    signal = numpy.array(inputsignal, dtype = numpy.complex128)
-    device = cl.get_platforms()[1].get_devices(device_type=cl.device_type.GPU)
-    ctx = cl.Context(device)
-    queue = cl.CommandQueue(ctx)
-    
-    api = cluda.ocl_api()
-    thr = api.Thread(queue)
-    
-    signal_dev = thr.to_device(signal)
-    ifft_res_dev = thr.array(signal.shape, dtype = numpy.complex128)
-    
-    IFFT = fftcl(ifft_res_dev).compile(thr)
-    IFFT(ifft_res_dev, signal_dev, inverse = True)
-    
-    res = ifft_res_dev.get()
-    return res
+	"""
+	signal = numpy.array(inputsignal, dtype = numpy.complex128)
+	device = cl.get_platforms()[1].get_devices(device_type=cl.device_type.GPU)
+	ctx = cl.Context(device)
+	queue = cl.CommandQueue(ctx)
+
+	api = cluda.ocl_api()
+	thr = api.Thread(queue)
+
+	signal_dev = thr.to_device(signal)
+	ifft_res_dev = thr.array(signal.shape, dtype = numpy.complex128)
+
+	IFFT = fftcl(ifft_res_dev).compile(thr)
+	IFFT(ifft_res_dev, signal_dev, inverse = True)
+
+	res = ifft_res_dev.get()
+	"""
+	res = numpy.fft.ifftn(inputsignal)
+	return res
 	
 def reciprocated_clone_hpf(data, npairs, testing=False, scan_number='(Unknown)', **meta):
 	"""

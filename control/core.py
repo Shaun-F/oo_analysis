@@ -13,23 +13,30 @@ from experiment.calc_sys_temp_offline import calc_sys_temp
 import time
 import argparse
 
-
 ############# Argument parsing
 P = argparse.ArgumentParser(description="Main execution file for oo_analysis")
 P.add_argument('-t', '--timeit', action='store', default=False, help='Argument specifies whether to time all the subprocesses of the analysis')
-P.add_argument('-r', '--reset', action='store', default=False, help="Argument specifies whether to delete the grand spectra and start from scratch. Default is False")
+P.add_argument('-cgs', '--clear_grand_spectra', action='store', default=False, help="Argument specifies whether to delete the grand spectra and start from scratch. Default is False")
+P.add_argument('--start_scan', action='store', default = '', help="Argument specifies the starting scan number of the analysis. If not specified, starting number specified by job.param")
+P.add_argument('--end_scan', action='store', default = '', help="Argument specifies the ending scan number of the analysis. If not specified, ending number specified by job.param")
 args = P.parse_args()
 
 timeit = args.timeit
-reset = args.reset
+reset = args.clear_grand_spectra
+start_scan = args.start_scan
+end_scan = args.end_scan
 #############
 
 # create main structure
 class core_analysis():
-	def __init__(self):
+	def __init__(self, **kwargs):
         # get parameters
 		filename = "../job.param"  # from command line, nominally
 		params = parser(filename)
+		for arg, val in kwargs.items():
+			if arg in params.keys():
+				params[str(arg)] = val
+				
         # set switches of analysis
         # default
         # from param file
@@ -39,14 +46,20 @@ class core_analysis():
         # set data structures
 		import data.__init__ 
 		
+		if start_scan!='':
+			params['start_scan']=start_scan
+		if end_scan!='':
+			params['end_scan']=end_scan
 		pulldata_start = time.time()
-		self.dig_dataset, self.h5py_file, self.no_axion_log = data.__init__.input(params)
+		self.dig_dataset, self.h5py_file, self.no_axion_log, self.paritioned = data.__init__.input(params)
 		self.keys = [i for i in self.dig_dataset.keys() if i not in self.no_axion_log] #Was originally dig_dataset,but some digitizer logs didnt have associated axion logs.
 		pulldata_stop = time.time()
 		
+		
 		self.output_file = "../output/grand_spectra.dat"
 		print("Loading data successful. It took {0:0.3f} seconds. Beginning analysis of {1} scans".format((pulldata_stop-pulldata_start), len(self.keys)))
-		
+		if self.paritioned:
+			print("Note: Dataset was paritioned")
 		if reset and 'grand_spectra_run1a' in self.h5py_file.keys():
 			del self.h5py_file['grand_spectra_run1a']
 		
@@ -81,6 +94,8 @@ class core_analysis():
 	def execute(self, timeit=False):
 		try:
 			# sets all calculations in motion
+			if len(self.keys)==0:
+				return print("No scans to analyze.")
 			self.meta_analysis = [timeit]
 			self.collect_bad_scans()
 			
@@ -89,18 +104,17 @@ class core_analysis():
 			self = back_sub.__init__.BS(self)
 			self.bad_scan_criteria['background'] = 'background condition'
 			"""
-			
+			print("generating signals")
 			self.collect_bad_scans()
 			import signals
 			signals_start = time.time()
 			self.signal_dataset = signals.generate(self)
 			signals_stop=time.time()
-			
+			print("signal generating complete. Beginning Analysis")
 			import analysis
 			analysis_start=time.time()
 			self.analysis_dataset, ncut = analysis.grand_spectra(self)
 			analysis_stop=time.time()
-			
 			#import MCMC
 			# perform MCMC analysis
 			#import analytics
@@ -108,9 +122,9 @@ class core_analysis():
 			if self.meta_analysis[0]:
 				print("\n\n################################ Meta-analysis ################################")
 				self.meta_analysis.append("\n\nTotal signal generation time is {0:03f} seconds".format(signals_stop - signals_start))
-				self.meta_analysis.append("Total analysis time is {0:03f} seconds".format(analysis_stop - analysis_start))
+				self.meta_analysis.append("Total analysis time of {0} scans is {1:03f} seconds".format(len(self.keys), analysis_stop - analysis_start))
 				[print(x) for x in self.meta_analysis[1:]]
-				print("###############################################################################\n\n")
+				print("#################################### End of Meta-analysis###########################\n\n")
 				with open("../meta/analysis_statistics.txt", "w") as f:
 					for x in self.meta_analysis[1:]:
 						f.write(str(x) + "\n")
@@ -166,14 +180,15 @@ class core_analysis():
 				cut_reason = "No associated axion log"
 			self.dig_dataset[key].attrs["cut"] = cut
 			self.dig_dataset[key].attrs["cut_reason"] = cut_reason
-			self.dig_dataset[key].attrs["cut"] = cut
-			self.dig_dataset[key].attrs["cut_reason"] = cut_reason
 			bad_scans_stop = time.time()
 			bad_scans_timer.append(bad_scans_stop-bad_scans_start)
 		
 		#meta analysis
 		if self.meta_analysis[0]:
-			average_time = sum(bad_scans_timer)/len(bad_scans_timer)
+			if len(bad_scans_timer)==0:
+				average_time = 0
+			else:
+				average_time = sum(bad_scans_timer)/len(bad_scans_timer)
 			self.meta_analysis.append("Collecting bad scans took {0:0.3f} seconds".format(average_time))
 		return None
 
@@ -188,3 +203,22 @@ if __name__ in '__main__':
 
 	x = core_analysis()
 	x.execute(timeit)
+	while True:
+		if x.paritioned:
+			params = {'start_scan': max(x.keys), 'end_scan': x.end_scan}
+			x = core_analysis(**params)
+			x.execute(timeit)
+			print("running next parition")
+		if not x.paritioned:
+			break
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		

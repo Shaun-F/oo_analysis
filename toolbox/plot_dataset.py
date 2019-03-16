@@ -39,10 +39,10 @@ def plotter(scan_number_or_array, savedir = None):
 			raise
 	elif isinstance(whatplot, numpy.ndarray):
 			if min(whatplot)<0:
-				m = min(whatplot)*1.5
-			elif min(whatplot)>0:
-				m=min(whatplot)*0.75
-			plt.ylim(m, max(whatplot)*1.5)
+				m = min(whatplot)
+			elif min(whatplot)>=0:
+				m=min(whatplot)
+			plt.ylim(m, max(whatplot))
 			plt.plot(numpy.arange(len(whatplot)), whatplot.real)
 			
 			if savedir!=None:

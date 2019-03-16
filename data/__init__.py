@@ -24,19 +24,28 @@ def input(parameters):
 		
 	dig_dataset = {}
 	no_axion_log = []
-	
+	counter = 0
+	paritioned = False
 	try:
-		dig_dataset = {str(key): data_file['digitizer_log_run1a'][str(key)] for key in range(start, stop)}
+		for key in range(start, stop):
+			try:
+				dataset_toadd = data_file['digitizer_log_run1a'][str(key)]
+				if 'alog_timestamp' in dataset_toadd.attrs:
+					dig_dataset[str(key)] = dataset_toadd
+					counter += 1
+				if not 'alog_timestamp' in dataset_toadd.attrs:
+					no_axion_log.append(str(key))
+			except KeyError:
+				pass
+			if counter>=10000:
+				partitioned = True
+				break
+
 		
-	except (KeyError, MemoryError):
+	except Exception:
+		data_file.close()
 		raise
-		
-	for key in dig_dataset:
-		if not 'alog_timestamp' in dig_dataset[key].attrs:
-			no_axion_log.append(key)
-	
-	
-	return dig_dataset, data_file, no_axion_log
+	return dig_dataset, data_file, no_axion_log, paritioned
 
 def add_input(database,trait,trait_name):
 	"""function takes trait in dictionary form and inputs attribute into

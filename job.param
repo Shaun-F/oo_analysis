@@ -5,6 +5,8 @@
 #current signal: SHM, axionDM_w_baryons, pCDM_only, pCDM_w_baryons, pCDM_maxwell_like_form, axionDM_only
 #current mod_types: "solar", "earth orbit", "earth rotation"
 #Resolution types: HR, MR, LR
+#Minimum digitizer number = 388518
+#Maximum digitizer number = 561150
 
 signal='SHM'
 pec_vel='earth rotation'
@@ -13,8 +15,8 @@ filter_params=[10,3]
 nbins=256
 
 pull_data='true'
-start_scan=516000
-end_scan=516049
+start_scan=300000
+end_scan=400500
 bad_scans="file path"
 restype="MR"
 
