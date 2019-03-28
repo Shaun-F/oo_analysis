@@ -125,7 +125,7 @@ class core_analysis():
 				[print(x) for x in self.meta_analysis[1:]]
 				print("#################################### End of Meta-analysis###########################\n\n")
 				date = datetime.datetime.now()
-				filename = "../meta/analysis_statistics" + "(" + str(len(self.keys)) + "_scans)(" + str(date.year) + "-" + str(date.month) + "-" + str(date.day) + "_" + str(date.hour) + "-" + str(date.minute) + "-" + str(date.second) + ").txt"
+				filename = "../meta/analysis_statistics" + "(" + str(date.year) + "-" + str(date.month) + "-" + str(date.day) + "_" + str(date.hour) + "-" + str(date.minute) + "-" + str(date.second) + ")(" + str(len(self.keys)) + "_scans).txt"
 				with open(filename, "w") as f:
 					for x in self.meta_analysis[1:]:
 						f.write(str(x) + "\n")
