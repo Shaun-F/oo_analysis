@@ -15,9 +15,9 @@ filter_params=[10,3]
 nbins=256
 
 pull_data='true'
-start_scan=300000
-end_scan=400500
-bad_scans="file path"
+start_scan=388518
+end_scan=561151
+bad_scans_file="../bad_scans.param"
 restype="MR"
 
 scan_crit=""

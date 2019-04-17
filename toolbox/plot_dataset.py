@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy
 import h5py
-def plotter(scan_number_or_array, savedir = None):
+def plotter(scan_number_or_array, savedir = None, **kwargs):
 	#retrieve data
 	dpi=1000
 	
@@ -17,6 +17,9 @@ def plotter(scan_number_or_array, savedir = None):
 			fres = data_file.attrs['frequency_resolution']
 			
 			data = data_file[...]
+			data = data[numpy.isfinite(data)]
+			
+			
 			domain = numpy.asarray([ fstart + fres*i for i in range(len(data))])
 			
 			if min(data)<0:
@@ -28,8 +31,30 @@ def plotter(scan_number_or_array, savedir = None):
 			plt.xlabel("frequency (hz)")
 			plt.ylabel("power (normed)")
 			
-			
-			plt.plot(domain, data)
+			for arg,val in kwargs.items():
+				if arg=='title':
+					plt.title(val)
+					del kwargs['title']
+				if arg=='xlabel':
+					plt.xlabel(val)
+					del kwargs['xlabel']
+				if arg=='ylabel':
+					plt.ylabel(val)
+					del kwargs['ylabel']
+				if arg=='ylimits':
+					plt.ylim(val[0], val[1])
+					del kwargs['ylimits']
+				if arg=='xlimits':
+					plt.xlim(val[0], val[1])
+					del kwargs['xlimits']
+				if arg=='xticks':
+					plt.xticks(val)
+					del kwargs['xticks']
+				if arg=='yticks':
+					plt.yticks(val)
+					del kwargs['yticks']
+					
+			plt.plot(domain, data, **kwargs)
 			if savedir!=None:
 				plt.savefig(savedir, dpi=dpi)
 			else:
@@ -37,13 +62,39 @@ def plotter(scan_number_or_array, savedir = None):
 			f.close()
 		except (AttributeError, KeyError):
 			raise
+	
 	elif isinstance(whatplot, numpy.ndarray):
 			if min(whatplot)<0:
 				m = min(whatplot)
 			elif min(whatplot)>=0:
 				m=min(whatplot)
-			plt.ylim(m, max(whatplot))
-			plt.plot(numpy.arange(len(whatplot)), whatplot.real)
+			ydata = whatplot[numpy.isfinite(whatplot.real)].real
+			xdata = numpy.arange(len(ydata))
+			plt.ylim(m, max(ydata)*(1+max(ydata)-min(ydata)))
+			
+			for arg,val in kwargs.items():
+				if arg=='title':
+					plt.title(val)
+				if arg=='xlabel':
+					plt.xlabel(val)
+				if arg=='ylabel':
+					plt.ylabel(val)
+				if arg=='ylimits':
+					plt.ylim(val[0], val[1])
+				if arg=='xlimits':
+					plt.xlim(val[0], val[1])
+				if arg=='xticks':
+					plt.xticks(val)
+				if arg=='yticks':
+					plt.yticks(val)
+				if arg=='data':
+					xdata = kwargs['data'][0]
+					ydata = kwargs['data'][1]
+			for string in ['title', 'xlabel', 'ylable', 'xlimits', 'ylimits', 'xticks', 'yticks', 'data']:
+				if string in kwargs.keys():
+					del kwargs[string]
+			
+			plt.plot(xdata, ydata, **kwargs)
 			
 			if savedir!=None:
 				plt.savefig(savedir, dpi=dpi)
@@ -55,6 +106,25 @@ def plotter(scan_number_or_array, savedir = None):
 			elif min(whatplot)>0:
 				m=min(whatplot)*0.75
 			plt.ylim(m, max(whatplot)*1.5)
+			for arg,val in kwargs.items():
+				if arg=='title':
+					plt.title(val)
+				if arg=='xlabel':
+					plt.xlabel(val)
+				if arg=='ylabel':
+					plt.ylabel(val)
+				if arg=='ylimits':
+					plt.ylim(val[0], val[1])
+				if arg=='xlimits':
+					plt.xlim(val[0], val[1])
+				if arg=='xticks':
+					plt.xticks(val)
+				if arg=='yticks':
+					plt.yticks(val)
+				if arg=='data':
+					xdata = kwargs['data'][0]
+					ydata = kwargs['data'][1]
+					
 			plt.plot(numpy.arange(len(whatplot)), list(map(abs, whatplot)))
 
 			if savedir!=None:

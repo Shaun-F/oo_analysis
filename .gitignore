@@ -39,3 +39,5 @@ Thumbs.db
 #Large files
 ######################
 run1a_data.hdf5
+frequencies.txt
+frequencies

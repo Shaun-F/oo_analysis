@@ -7,7 +7,7 @@ Created on Wed Aug  1 14:52:47 2018
 import sys
 sys.path.append("..")
 
-import numpy as np
+import numpy
 from astropy import constants as const
 from astropy import units as u
 from signals.modulation import *
@@ -26,15 +26,15 @@ def convolve_two_arrays(array1, array2):
 	"""Convolution based off the convolution theorem"""
 	if len(array1)<len(array2):
 		diff = len(array2)-len(array1)
-		array1 = np.pad(array1, (int(np.floor(diff/2)), int(np.ceil(diff/2))), 'constant', constant_values=0)
+		array1 = numpy.pad(array1, (int(numpy.floor(diff/2)), int(numpy.ceil(diff/2))), 'constant', constant_values=0)
 	elif len(array2)<len(array1):
 		diff = len(array1)-len(array2)
-		array2 = np.pad(array2, (int(np.floor(diff/2)), int(np.ceil(diff/2))), 'constant', constant_values=0)
+		array2 = numpy.pad(array2, (int(numpy.floor(diff/2)), int(numpy.ceil(diff/2))), 'constant', constant_values=0)
 		
 	array1_fft = DFT(array1)
 	array2_fft = DFT(array2)
 
-	return np.real(IDFT(array1_fft*array2_fft))
+	return numpy.real(IDFT(array1_fft*array2_fft))
 
 	
 	
@@ -46,71 +46,81 @@ def MR_scan_analysis(scan, **params):
 	"""
 	ch=1 #This is obsolete for 1A analysis, but was carried over from lua->python conversion.
 	
-	digitizer_scan = scan 
-	scan_number = params["scan_number"]
-	#Write exceptions here (reason not to include scans in Run1A)
-	
-	constants_start = time.time()
-	fstart = eval(digitizer_scan.attrs["start_frequency"])
-	fstop = eval(digitizer_scan.attrs["stop_frequency"])
-	res = eval(digitizer_scan.attrs["frequency_resolution"])
-	freqs = np.asarray([fstart + res*i for i in np.arange(start=0, stop=((fstop-fstart)/res))])
+	#declare variables to be used by single scan analysis
+	try:
+		digitizer_scan = scan 
+		scan_number = params["scan_number"]
+		#Write exceptions here (reason not to include scans in Run1A)
+		
+		constants_start = time.time()
+		fstart = float(digitizer_scan.attrs["start_frequency"])
+		fstop = float(digitizer_scan.attrs["stop_frequency"])
+		res = float(digitizer_scan.attrs["frequency_resolution"])
+		int_time = float(digitizer_scan.attrs['integration_time'])
+		freqs = numpy.asarray([fstart + res*i for i in numpy.arange(start=0, stop=((fstop-fstart)/res))])
 
-	binwidth = float(res)*10**6 # in Hz
-	h = const.h.value*u.J.to(u.eV,1) #plancks const eV*s
-	k = const.k_B.value #Boltzmanns constant J/K
-	Tsys = params["Tsys"] #calculate the system temperature
-	kT = k*Tsys 
-	BkT = binwidth*kT
-	constants_stop = time.time()
-	
-	data = digitizer_scan[...]
+		binwidth = float(res)*10**6 # in Hz
+		
+		h = const.h.value*u.J.to(u.eV,1) #plancks const eV*s
+		k = const.k_B.value #Boltzmanns constant J/K
+		Tsys = params["Tsys"] #calculate the system temperature
+		kT = k*Tsys 
+		BkT = binwidth*kT
+		constants_stop = time.time()
+		
+		data = digitizer_scan[...]
 
+		
+		modulation_type = params["pec_vel"]
+		signal_shape = params["signal_dataset"][scan_number]['signal']
+		
+		scan_length = len(freqs)
+		middlefreqpos = int(numpy.floor(scan_length/2))
+		middlefreq = freqs[(middlefreqpos-1)]
+		nbins = params['nbins']
+		axion_RMF = float(middlefreq*10**6 - (middlefreq*10**6)%binwidth) #calculate axion at center of scan
+		timestamp = digitizer_scan.attrs["timestamp"]
+		axion_mass = float(axion_RMF*h)
+		startfreq = float(digitizer_scan.attrs["start_frequency"])*10**6
+		wantTseries=None
+		
+		#Calculate average power deposited by axion
+		axion_power_start = time.time()
+		dfszaxion = axion_power(params["axion_scan"],axion_RMF, nbins=nbins, res=res)
+		axion_power_stop = time.time()
+	except SyntaxError as error:
+		print("MR_scan_analysis failed at scan {0} with error: \n {1}".format(scan_number, error))
+		raise
 	
-	modulation_type = params["pec_vel"]
-	signal_shape = params["signal"]
-	
-	scan_length = len(freqs)
-	middlefreqpos = int(np.floor(scan_length/2))
-	middlefreq = freqs[(middlefreqpos-1)]
-	nbins = params['nbins']
-	axion_RMF = float(middlefreq*10**6 - (middlefreq*10**6)%binwidth) #calculate axion at center of scan
-	timestamp = digitizer_scan.attrs["timestamp"]
-	axion_mass = float(axion_RMF*h)
-	startfreq = digitizer_scan.attrs["start_frequency"]*10**6
-	wantTseries=None
-	
-	#Calculate average power deposited by axion
-	axion_power_start = time.time()
-	dfszaxion = axion_power(params["axion_scan"],axion_RMF, nbins=nbins, res=res)
-	axion_power_stop = time.time()
-	
+	#begin signal scan analysis
 	try:
 		#Calculate boosted signal
 		modulation_start = time.time()
 		mod_class = modulation()
 		kwargs = {'resolution':binwidth}
-		signal_shape = mod_class.modulatedsignal(modulation_type, timestamp, signal_shape, axion_mass, **kwargs)
 		modulation_stop = time.time()
 		
-		axblank = np.empty_like(signal_shape["signal"])
-		DFSZshape = [i*dfszaxion for i in signal_shape["signal"]]
+		axblank = numpy.empty_like(signal_shape)
+		DFSZshape = [i*dfszaxion for i in signal_shape]
 
 		#Remove Receiver response from scan
 		BS_start = time.time()
 		try:
 			copies=params["filter_params"][1]
 			window = params['filter_params'][0]
-			filter = reciprocated_clone_hpf(data, window, copies, False, **params['submeta'])
+			filter, errors = reciprocated_clone_hpf(data, window, copies, False, **params['submeta'])
 			filtered_data = filter['filtereddata']
 			submeta = filter['meta']
+			if errors['maxed_filter_size']:
+				with open('BS_errors.txt', 'a+') as f:
+					f.write("Background subtraction filter size maxed out with scan {0} \n".format(scan_number))
 		except TypeError as error:
 			raise
 			#raise Exception("Error: Invalid data type for scan {0}. Type {1} not accepted".format(scan_number, type(data)))
 		BS_stop = time.time()
 		
 		consolidation_start = time.time()
-		filtered_data_mean = np.mean(filtered_data)
+		filtered_data_mean = numpy.mean(filtered_data)
 		deltas = (filtered_data - filtered_data_mean)
 		digitizer_scan = bin_consolidator(digitizer_scan, res)
 		consolidation_stop = time.time()
@@ -128,14 +138,14 @@ def MR_scan_analysis(scan, **params):
 		
 		#Genereate bin-wise scan stats assuming all power in single bin
 		bin_stats_start = time.time()
-		sigma = np.std(deltas)
+		sigma = numpy.std(deltas)
 		sigma_w = BkT*sigma
 		power_deltas = BkT*deltas
 		trans_power_deltas = cav_trans_mod*power_deltas
 		variance_w = sigma_w**2
 		nscans = lorentzian_profile
 		noise_power = sigma_w
-		SNR = axion_power_excess_watts/sigma_w
+		SNR = (axion_power_excess_watts/sigma_w)*(binwidth*int_time)**(1/2)
 		bin_stats_stop = time.time()
 		
 		#Fit to axion signal
@@ -146,7 +156,7 @@ def MR_scan_analysis(scan, **params):
 		trans_power_deltas_fft = DFT(trans_power_deltas)
 		DFSZshape_fft = DFT(DFSZshape)
 		dfszpow = dfszaxion
-		trans_power_deltas = np.pad(trans_power_deltas, len(axblank), 'constant', constant_values = 0)
+		trans_power_deltas = numpy.pad(trans_power_deltas, len(axblank), 'constant', constant_values = 0)
 		signal_data_convolution = convolve_two_arrays(trans_power_deltas, DFSZshape) 
 		convolution_length = len(signal_data_convolution)
 		convolutions_stop = time.time()
@@ -155,10 +165,11 @@ def MR_scan_analysis(scan, **params):
 		axion_rmfs_start = time.time()
 		axion_rmfs = []
 		n_signal_width = len(DFSZshape)
-		for i in np.arange(scan_length+2*n_signal_width)-1:
+		for i in numpy.arange(scan_length+2*n_signal_width)-1:
 			axion_rmfs.append(axion_RMF + binwidth*(i-middlefreqpos-n_signal_width))
 		axion_rmfs_stop = time.time()
 
+		
 		#find maximum likelihood
 
 		max_likelihood_arith_start = time.time()
@@ -166,13 +177,12 @@ def MR_scan_analysis(scan, **params):
 		Aml_num = signal_data_convolution*(1/(2*sigma_w**2))
 		lorentz_squared = cav_trans_mod**2
 		model_squared = [i**2 for i in DFSZshape] #DFSZshape**2
-		lorentz_squared = np.pad(lorentz_squared, len(axblank), 'constant', constant_values=0)
+		lorentz_squared = numpy.pad(lorentz_squared, len(axblank), 'constant', constant_values=0)
 		conv_Aml_den = convolve_two_arrays(lorentz_squared, model_squared)
 		Aml_den = conv_Aml_den*(1/(2*sigma_w**2))
 		model_excess_sqrd = Aml_den
 		optimal_weight_sum = Aml_num
 		max_likelihood_arith_stop = time.time()
-		
 		#compute most likely axion power
 		max_likelihood_start = time.time()
 		maximum_likelihood = Aml_num/Aml_den
@@ -189,11 +199,11 @@ def MR_scan_analysis(scan, **params):
 		first_two_terms = A**2*Aml_den-2*A*Aml_num
 
 		chi_squared_diff = chi_sqrd_diff_two - chi_sqrd_diff_one
-		chi_squared_diff_red = chi_squared_diff/np.sqrt(len(data)-1)
+		chi_squared_diff_red = chi_squared_diff/numpy.sqrt(len(data)-1)
 
 		sigma_A = []
-		for i in np.arange(len(chi_squared_diff_red)):
-			sigma_A.append(np.sqrt(2*chi_squared_diff[i])**(-1))
+		for i in numpy.arange(len(chi_squared_diff_red)):
+			sigma_A.append(numpy.sqrt(2*chi_squared_diff[i])**(-1))
 		max_likelihood_stop = time.time()
 		
 		sig_sens_start = time.time()
@@ -204,17 +214,18 @@ def MR_scan_analysis(scan, **params):
 		#Sensitivity is calculated using significance of fit to axion of known power
 		cl_coeff = 1.64485 #how many sigmas does 90% of data fall within
 		sensitivity_power = [i*cl_coeff for i in sigma_A] #sigma_A*cl_coeff
-		sensitivity_coupling = [np.sqrt(i) for i in sensitivity_power] #np.sqrt(sensitivity_power)
+		sensitivity_coupling = [numpy.sqrt(i) for i in sensitivity_power] #np.sqrt(sensitivity_power)
 
 
 		#consolidate statisitics
-		nscans = np.pad(nscans, len(axblank), 'constant', constant_values = 0)
-		deltas = np.pad(deltas, len(axblank), 'constant', constant_values=0)
-		SNR = np.pad(SNR, len(axblank), 'constant', constant_values = 0)
-		power_deviation = np.pad(power_deltas, len(axblank), 'constant', constant_values = 0) #weighted_deltas
+		nscans = numpy.pad(nscans, len(axblank), 'constant', constant_values = 0)
+		#deltas = numpy.pad(deltas, len(axblank), 'constant', constant_values=0)
+		SNR = numpy.pad(SNR, len(axblank), 'constant', constant_values = numpy.inf)
+		#power_deviation = numpy.pad(power_deltas, len(axblank), 'constant', constant_values = 0) #weighted_deltas
 		sig_sens_stop = time.time()
-	except (KeyError, ValueError):
+	except (KeyError, ValueError, IndexError) as error:
 		print("\n\nError with scan {0}".format(scan_number))
+		open('../../meta/error_log', 'a+').write(str(time.time())+ "\n\n"+ str(error))
 		raise
 		
 		
@@ -232,6 +243,8 @@ def MR_scan_analysis(scan, **params):
 		submeta['max_likelihood_arith'].append(max_likelihood_arith_stop - max_likelihood_arith_start)
 		submeta['max_likelihood'].append(max_likelihood_stop - max_likelihood_start)
 		submeta['sig_sens'].append(sig_sens_stop - sig_sens_start)
+	
+	
 	results = {'deltas':deltas,
 				'scan_id':scan_number,
 				'nscans':nscans,
@@ -245,9 +258,11 @@ def MR_scan_analysis(scan, **params):
 				'axion_fit_significance':axion_fit_significance,
 				'sensitivity_power':sensitivity_power,
 				'sensitivity_coupling':sensitivity_coupling,
-				'axion_frequencies':axion_rmfs, #in Hz
-				'power_deviation':power_deviation.real,
-				'sigma':sigma
+				'power_deviation':power_deltas.real,
+				'sigma':sigma,
+				'start_frequency': freqs[0]*10**6,
+				'middle_frequency':middlefreq*10**6,
+				'axion_frequencies':axion_rmfs #in Hz
 				}
 	return results
 

@@ -10,7 +10,7 @@ from reikna.fft import FFT as fftcl
 import os
 import sys
 sys.path.append("..")
-from toolbox.plot_dataset import plotter
+from toolbox.DFT import DFT, IDFT
 import time
 
 os.environ["PYOPENCL_COMPILER_OUTPUT"] = "1"
@@ -44,46 +44,7 @@ start = rest_energy/h - nbins*df/2
 stop = start + nbins*df
 bins = [start + df*i for i in range(nbins)]
 
-def DFT(inputsignal):
-	"""
-	signal = numpy.array(inputsignal, dtype = numpy.complex128)
-	device = cl.get_platforms()[1].get_devices(device_type=cl.device_type.GPU)
-	ctx = cl.Context(device)
-	queue = cl.CommandQueue(ctx)
 
-	api = cluda.ocl_api()
-	thr = api.Thread(queue)
-	signal_dev = thr.to_device(signal)
-	fft_res_dev = thr.array(signal.shape, dtype = numpy.complex128)
-
-	FFT = fftcl(signal_dev).compile(thr)
-	FFT(fft_res_dev, signal_dev)
-
-	res = fft_res_dev.get()
-	"""
-	res = numpy.fft.fftn(inputsignal)
-	return res
-
-def IDFT(inputsignal):
-	"""
-	signal = numpy.array(inputsignal, dtype = numpy.complex128)
-	device = cl.get_platforms()[1].get_devices(device_type=cl.device_type.GPU)
-	ctx = cl.Context(device)
-	queue = cl.CommandQueue(ctx)
-
-	api = cluda.ocl_api()
-	thr = api.Thread(queue)
-
-	signal_dev = thr.to_device(signal)
-	ifft_res_dev = thr.array(signal.shape, dtype = numpy.complex128)
-
-	IFFT = fftcl(ifft_res_dev).compile(thr)
-	IFFT(ifft_res_dev, signal_dev, inverse = True)
-
-	res = ifft_res_dev.get()
-	"""
-	res = numpy.fft.ifftn(inputsignal)
-	return res
 	
 def reciprocated_clone_hpf(data, npairs, testing=False, scan_number='(Unknown)', **meta):
 	"""
@@ -101,8 +62,9 @@ def reciprocated_clone_hpf(data, npairs, testing=False, scan_number='(Unknown)',
 			break
 		else:
 			return "Error: invalid data type"
-	if data[1]-data[0]>2*10**(-9): # Some spectra have odd behavior at beginning of scan, i.e. a single downward spike at the beginning position. I just set a default value
-		data[0]=data[1]
+	errors = {'maxed_filter_size':False}
+	#if (numpy.mean(data)-data[0])>numpy.std(data): # Some spectra have odd behavior at beginning of scan, i.e. a single downward spike at the beginning position. I just set a default value
+	data[0]=data[1]
 	while len(data)<256: #For some reason, some datasets dont have 2**8 elements.
 		data = numpy.append(data[0], data)
 	
@@ -131,6 +93,11 @@ def reciprocated_clone_hpf(data, npairs, testing=False, scan_number='(Unknown)',
 	struc_length = 2*(numpy.absolute(argmax-argmin))
 	sigmamult = (2*numpy.pi)/(struc_length)*5*10**2
 	sigma = numpy.ceil(sigmamult*(2*n+1))
+	if sigma>200:
+		sigma=200
+		print("Ceiling of reciprocated clone hpf reached")
+		errors['maxed_filter_size'] = True
+		
 	calculating_tophat_size_stop = time.time()
 	
 	#reflects the dataset about the center and operates on it to sequence datasets without discontinuities 
@@ -192,6 +159,7 @@ def reciprocated_clone_hpf(data, npairs, testing=False, scan_number='(Unknown)',
 	dividing_structure_stop = time.time()
 	
 	if testing == True:
+		from toolbox.plot_dataset import plotter
 		sdir = "C:/Users/drums/Documents/Coding Software/Python/Scripts/New-Analysis-Scheme/oo_analysis/figures/"+ '('+scan_number+')'
 		format = '.pdf'
 		print("Plotting data")
@@ -203,13 +171,15 @@ def reciprocated_clone_hpf(data, npairs, testing=False, scan_number='(Unknown)',
 		print("Plotting large appended array")
 		plotter(SigToPlot,savedir = sdir+'large_append_array'+format); 
 		print("Plotting fft'ed large appended array");
-		plotter(fftSigToPlot,savedir = sdir+'fft-ed large appended_array'+format); 
+		plotter(fftSigToPlot,savedir = sdir+'fft-ed large appended_array'+format, **{'title': "With sigma = {0}".format(sigma)}); 
 		print("Plotting inverse fft'ed subtracted fft")
 		plotter(BSfftSigToPlot,savedir = sdir+'inverse fft-ed append array'+format);
 		print("Plotting recovered data from inverse fft'ed array")
 		plotter(pickORIG,savedir = sdir+'recovered data from ifft-ed array'+format)
 		print("Plotting filtered data")
 		plotter(filtereddata,savedir = sdir+'filtered data'+format)
+		print("Plotting filter function")
+		plotter(tophat, savedir = sdir + "filter_function"+format)
 	
 	#meta analysis
 	if 'timeit' in meta.keys():
@@ -233,7 +203,7 @@ def reciprocated_clone_hpf(data, npairs, testing=False, scan_number='(Unknown)',
 			meta['picking_og_signal'].append(picking_og_signal)
 			meta['dividing_structure'].append(dividing_structure)
 	
-	return {"filtereddata":filtereddata, "sigma": sigma, "number of clones": npairs, "meta": meta}
+	return {"filtereddata":filtereddata, "sigma": sigma, "number of clones": npairs, "meta": meta}, errors
 
 def sixorderpoly(signal):
         domain = numpy.arange(len(signal))

@@ -20,6 +20,8 @@ class modulation():
 		for key,param in params.items(): #python 3.x
 			setattr(self,key,param)
 		# sets up time, peculiar velocities, etc
+		self.sig_integ8_list = []
+		self.sig_mod_list = []
 		return None
 	def executor(self):
 		"""
@@ -29,11 +31,6 @@ class modulation():
 		default_keys = ["pec_vel", "timestamp", "signal", "axion_mass", "dig_dataset"]
 		default = {key: getattr(self, key) for key in default_keys}
 		
-		#define secondary values
-		secondary={}
-		for key in self.__dict__.keys():
-			if key not in default_keys:
-				secondary[key] = getattr(self, key)
 			
 		modulation_type = default["pec_vel"]
 		timestamps = default["timestamp"]
@@ -41,18 +38,46 @@ class modulation():
 		axion_mass = default["axion_mass"]
 		scans = default["dig_dataset"]
 		
+		sig_mod_list_start = time.time()
+		self.mod_vels = self.modulate(modulation_type, timestamps) #dictionary of total experiment velocity around galactic center keyed by timestamp
+		sig_mod_list_stop = time.time()
+		
+
+		#define secondary values and attach to class
+		secondary={}
+		for key in self.__dict__.keys():
+			if key not in default_keys:
+				secondary[key] = getattr(self, key)
+				
 		signals = {}
 		timer = []
 		for key in self.keys:
 			start = time.time()
-			signals[key] = self.modulatedsignal(modulation_type, timestamps[key], shape_model, axion_mass, **secondary)
+			timestamp = timestamps[key]
+			signals[key] = self.modulatedsignal(modulation_type, timestamp, shape_model, axion_mass, self.mod_vels[timestamp], **secondary)
 			stop = time.time()
 			timer.append(stop-start)
 		
 		if self.meta_analysis[0]:
-			avg = sum(timer)/len(timer)
-			self.meta_analysis.append("Signal modulation took, on average, {0:03f} seconds".format(avg))
-		
+			#Generating modulated signal time
+			sig_mod_avg = sum(timer)/len(timer)
+			sig_mod_tot = sum(timer)
+			#modulation velocity time
+			##sig_mod_vel_avg = sum(self.sig_mod_list)/len(self.sig_mod_list)
+			sig_mod_vel_tot = sig_mod_list_stop-sig_mod_list_start
+			#signal integration time
+			sig_integ8_avg = sum(self.sig_integ8_list)/len(self.sig_integ8_list)
+			sig_integ8_tot = sum(self.sig_integ8_list)
+			
+			self.meta_analysis.append("\n\n########## averages of signal generation ##########")
+			self.meta_analysis.append("Generating modulated signal took, on average, {0:03f} seconds".format(sig_mod_avg))
+			self.meta_analysis.append("Signal integration took, on average, {0:03f} seconds".format(sig_integ8_avg))
+			#self.meta_analysis.append("Calculating modulation velocity took, on average, {0:03f} seconds".format(sig_mod_vel_avg))
+			
+			self.meta_analysis.append("\n\n########## totals of signal generation ##########")
+			self.meta_analysis.append("Total modulated signal generation time over all signals is {0:03f} seconds".format(sig_mod_tot))
+			self.meta_analysis.append("Total signal integration time over all signals is {0:03f} seconds".format(sig_integ8_tot))
+			self.meta_analysis.append("Total time to calculate modulation velocity is {0:03f} seconds".format(sig_mod_vel_tot))
 		return signals
 		
 	# methods for incorporating several levels of peculiar velocities and other
@@ -60,26 +85,22 @@ class modulation():
 	
 	def modulate(self,modulation_type, timestamp):
 
-		vel_orbit = tf_lib.transformer().earth_vel_GalacticFrame(timestamp)
 		#vt_orbit = vel_orbit["vt"]
-
-		vel_rotation = tf_lib.transformer().experiment_vel_GalacticFrame(timestamp)
 		#vt_rotation = vel_rotation["vt"]
 
-		vel_solar = tf_lib.transformer().solar_vel_GalacticFrame()
 		if modulation_type == None or modulation_type =="None":
 			modulation_type = "solar"
 
 		if modulation_type == "solar":
-			return vel_solar
+			return tf_lib.transformer().solar_vel_GalacticFrame()
 		elif modulation_type=="earth orbit":
-			return vel_orbit
+			return tf_lib.transformer().earth_vel_GalacticFrame(timestamp)
 		elif modulation_type=="earth rotation":
-			return vel_rotation 
+			return tf_lib.transformer().experiment_vel_GalacticFrame(timestamp)
 		else:
 			return "Error: modulation type not recognized"
 
-	def modulatedsignal(self, modulation_type, timestamp, shape_model, axion_mass, **kwargs):
+	def modulatedsignal(self, modulation_type, timestamp, shape_model, axion_mass, modulated_velocity, **kwargs):
 		"""
 		Description:Function bins a given velocity-modulated axion shape by integration.
 
@@ -111,16 +132,22 @@ class modulation():
 			T = 0
 		else:
 			T = kwargs["T"]
+		if 'mod_vels' in kwargs.keys():
+			vel_mod = kwargs['mod_vels']
 
+		#modulation velocity
+		#mod_vel_start = time.time()
 		#specify parameters to be used in various signal scripts
 		modtype = modulation_type #create pointer with shorter character length
 		vsol = tf_lib.transformer().solar_vel_GalacticFrame() # (km/s) mean solar speed around galaxy
-		vel_mod = float(self.modulate(modtype, timestamp)) #variation of experimental apparatus speed around sun w.r.t. galactic center
+		vel_mod = float(modulated_velocity) #variation of experimental apparatus speed around sun w.r.t. galactic center
+		#mod_vel_stop = time.time()
 		h = Cnsts.h.value*6.242*10**18 # plancks constant in eV*s
 		m = axion_mass # axion mass in eV
 		bin_width = float(resolution) #size of bins in hZ
 		RMF = float(m/h) # Rest mass frequency in hZ
-		cutoffarea = 0.9
+		cutoffarea = 0.95
+		
 
 		signal_cl = signal(self.__dict__)
 
@@ -136,7 +163,7 @@ class modulation():
 		info = []
 		i=0
 
-		
+		integrate_signal_start = time.time()
 		#modulate specified axion shape based on input parameters
 		if shape_model == "axionDM_w_baryons":
 			while sumbins<cutoffarea:
@@ -222,7 +249,8 @@ class modulation():
 				i += 1
 				if len(binned_signal)>500:
 					break
-
+		integrate_signal_stop = time.time()
+		
 		#Error message if shape model has not yet been defined or doesnt even exist
 		if shape_model != "axionDM_only" and shape_model != "pCDM_maxwell_like_form" and shape_model != "pCDM_w_baryons" and shape_model != "pCDM_only" and shape_model != "SHM" and shape_model != "axionDM_w_baryons":
 			return "Error: Axion shape model not recognized"
@@ -236,6 +264,8 @@ class modulation():
 		#collect important properties and values
 		info = {'rest mass frequency':RMF, 'shape': shape_model, 'signal': finalsignal, 'freqs':startingfreqs}
 
+		#self.sig_mod_list.append(mod_vel_stop - mod_vel_start)
+		self.sig_integ8_list.append(integrate_signal_stop-integrate_signal_start)
 		return info
 
 	def timestamptranslator(self, date):

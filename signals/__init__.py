@@ -33,11 +33,13 @@ def generate(object):
 	meta = {"meta_analysis":object.meta_analysis}
 	
 	# modulate signal for each scan
+	signal_mod_start = time.time()
 	signals = mod.modulation(**modparams, **scanparams_dict, **sigparams, **meta).executor()
+	signal_mod_stop = time.time()
+	
+	"""
 	if object.meta_analysis[0]:
 		object.meta_analysis.append("Signal generation took {0:03f} seconds".format(signal_gen_stop - signal_gen_start))
+		object.meta_analysis.append("Signal modulation took {0:03f} seconds".format(signal_mod_stop - signal_gen_start))
 	"""
-	for key,sparams in scanparams.__dict__.items(): # python 3.x
-		signals[key] = mod.modulatedsignal(signal,scanparams,modparams)
 	return signals
-"""

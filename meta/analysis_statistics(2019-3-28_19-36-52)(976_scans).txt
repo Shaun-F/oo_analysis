@@ -1,0 +1,120 @@
+Collecting bad scans took 0.001 seconds
+Collecting bad scans took 0.001 seconds
+
+
+########## averages of signal generation ##########
+Generating modulated signal took, on average, 0.092234 seconds
+Signal integration took, on average, 0.002087 seconds
+Calculating modulation velocity took, on average, 0.090098 seconds
+
+
+########## totals of signal generation ##########
+Total modulated signal generation time over all signals is 90.020493 seconds
+Total signal integration time over all signals is 2.037098 seconds
+Total time to calculate modulation velocity is 87.935544 seconds
+
+Pulling/creating grand spectra group took 0.575727 seconds
+
+
+########## averages of single scan analysis ##########
+average time to calculate constants in single scan analysis is 0.000756
+average time to calculate axion power in single scan analysis is 0.000364
+average time to perform signal modulation in single scan analysis is 0.081262
+average time to perform background subtraction in single scan analysis is 0.001571
+average time to consolidate bin resolution in single scan analysis is 0.000048
+average time to calculate cavity lorentzian in single scan analysis is 0.000277
+average time to calculate single bin statistics in single scan analysis is 0.000104
+average time to calculate convolutions in single scan analysis is 0.000468
+average time to calculate all axion frequencies in single scan analysis is 0.001409
+average time to carry out maximum likelihood arithmetic (sums, multiplications) in single scan analysis is 0.000380
+average time to calculate maximum likelihood in single scan analysis is 0.001310
+average time to calculate sensitivities and significances in single scan analysis is 0.000928
+average time to add/subtract scan is 0.140112
+average time to consolidation all data is 0.022966
+
+
+average time to consolidate optimal_weight_sum statistic is 0.002023
+average time to consolidate model_excess_squared statistic is 0.000933
+average time to consolidate nscan statistic is 0.000961
+average time to consolidate SNR statistic is 0.002526
+average time to consolidate sigma_A statistic is 0.002362
+average time to consolidate power_deviation statistic is 0.001232
+average time to consolidate coupling_sensitivity statistic is 0.002535
+average time to consolidate power_sensitivity statistic is 0.002376
+average time to consolidate noise_power statistic is 0.003131
+average time to consolidate axion_fit statistic is 0.002385
+average time to consolidate axion_fit_significance statistic is 0.002503
+
+average time to initialize scans in coaddition class is 0.000000
+average time to initialize grand_spectra is 0.000000
+average time to initialize grand spectra in coaddition class is 0.000000
+
+average time to attach new scan to coaddition class is 0.000
+
+
+########## Totals of single scan analysis ##########
+total time to calculate constants in single scan analysis is 0.737876
+total time to calculate axion power in single scan analysis is 0.355233
+total time to perform signal modulation in single scan analysis is 79.312033
+total time to perform background subtraction in single scan analysis is 1.533235
+total time to consolidate bin resolution in single scan analysis is 0.046618
+total time to calculate cavity lorentzian in single scan analysis is 0.269941
+total time to calculate single bin statistics in single scan analysis is 0.101352
+total time to calculate convolutions in single scan analysis is 0.457006
+total time to calculate all axion frequencies in single scan analysis is 1.375492
+total time to carry out maximum likelihood arithmetic (sums, multiplications) in single scan analysis is 0.370899
+total time to calculate maximum likelihood in single scan analysis is 1.278124
+total time to calculate sensitivities and significances in single scan analysis is 0.905337
+total time to add/subtract scan is 136.749351
+total time to consolidation all data is 22.414939
+
+
+total time to consolidate optimal_weight_sum statistic is 1.973990
+total time to consolidate model_excess_squared statistic is 0.910213
+total time to consolidate nscan statistic is 0.937987
+total time to consolidate SNR statistic is 2.464915
+total time to consolidate sigma_A statistic is 2.305279
+total time to consolidate power_deviation statistic is 1.202890
+total time to consolidate coupling_sensitivity statistic is 2.474333
+total time to consolidate power_sensitivity statistic is 2.319132
+total time to consolidate noise_power statistic is 3.055821
+total time to consolidate axion_fit statistic is 2.327792
+total time to consolidate axion_fit_significance statistic is 2.442587
+
+total time to initialize scans in coaddition class is 0.000000
+total time to initialize grand_spectra is 0.000000
+total time to initialize grand spectra in coaddition class is 0.000000
+total time to calculate position of scan in grand spectra is 0.000
+total time to attach new scan to coaddition class is 0.000
+average time to input last_calculation time is 0.000
+average time to calculate position of scan in grand spectra is 0.000
+total time to input last_calculation time is 0.060
+
+
+
+########## Averages of background subtraction ##########
+average time to reflect scan is 0.000000
+average time to calculate tophat size is 0.000053
+average time to calculated reciprocated signal is 0.000045
+average time to generate large array of clones is 0.000053
+average time to generate tophat is 0.000333
+average time to fft and multiply by tophat is 0.000351
+average time to inverse fft is 0.000111
+average time to extract original signal is 0.000112
+average time to divide out structure is 0.000068
+
+
+########## Totals of background subtraction ##########
+total time to reflect scan is 0.000062
+total time to calculate tophat size is 0.051962
+total time to calculated reciprocated signal is 0.043618
+total time to generate large array of clones is 0.051702
+total time to generate tophat is 0.325037
+total time to fft and multiply by tophat is 0.342630
+total time to inverse fft is 0.108407
+total time to extract original signal is 0.109787
+total time to divide out structure is 0.066633
+
+
+Total signal generation time is 90.030551 seconds
+Total analysis time of 976 scans is 225.556005 seconds

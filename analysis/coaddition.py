@@ -3,7 +3,7 @@ import datetime as dt
 import numpy as np
 import sys; sys.path.append("..")
 from toolbox.add_to_dataset import * #addtodataset, subtractfromdataset, assign_newdata
-#import numba; from numba import njit, jit, jitclass, int32, float32
+#import numba; from numba import njit, jit, jitclass, float64
 import time
 from toolbox.grand_spectra_init import initialization
 
@@ -23,7 +23,17 @@ class scan_cl(object):
 		
 		init_scans_in_class_start = time.time()
 		self.op = op
+		self.scan=scan
 		self.scan_scan_number = scid
+		init_scans_in_class_stop = time.time()
+		
+		#setup class definitions for chunk 
+		#pull only array of points from grand_spectra that line up with scan
+		init_GS_in_class_start = time.time()
+		self.chunk = chunk
+		init_GS_in_class_stop = time.time()
+		
+		"""
 		self.scan_nscans = scan["nscans"]
 		self.scan_sigma_w = scan["sigma_w"]
 		self.scan_optimal_weight_sum = scan["optimal_weight_sum"]
@@ -36,21 +46,11 @@ class scan_cl(object):
 		self.scan_sensitivity_power = scan["sensitivity_power"]
 		self.scan_sensitivity_coupling = scan["sensitivity_coupling"]
 		self.scan_axion_frequencies = scan["axion_frequencies"]
-		init_scans_in_class_stop = time.time()
-		#setup class definitions for chunk 
-		
-		init_GS_start = time.time()
-		#initialization(chunk) #Check if grand spectra group needs to be created
-		init_GS_stop = time.time()
-		
-		#pull only array of points from grand_spectra that line up with scan
-		init_GS_in_class_start = time.time()
 		self.chunk_axion_frequencies = chunk["axion_frequencies"][...]
 		self.matched_indices = self.frequency_index_matcher()
 		self.chunk_indices = list(self.matched_indices[0])
 		min_inx = min(self.chunk_indices)
 		max_inx = max(self.chunk_indices)+1
-		self.chunk_scan_number = chunk["scans"][...]
 		self.chunk_nscans = chunk["nscans"][min_inx:max_inx]
 		self.chunk_sigma_w = chunk["sigma_w"][min_inx:max_inx]
 		self.chunk_optimal_weight_sum = chunk["optimal_weight_sum"][min_inx:max_inx]
@@ -63,21 +63,16 @@ class scan_cl(object):
 		self.chunk_sensitivity_power = chunk["sensitivity_power"][min_inx:max_inx]
 		self.chunk_sensitivity_coupling = chunk["sensitivity_coupling"][min_inx:max_inx]
 		self.chunk_axion_fit_significance = chunk['axion_fit_significance'][min_inx:max_inx]
-		
-		init_GS_in_class_stop = time.time()
+		self.chunk_last_change = chunk['last_change']
+		"""
 		
 		submeta = params['submeta']
 		if submeta['timeit']:
 			submeta['init_scans_in_class'].append(init_scans_in_class_stop - init_scans_in_class_start)
-			submeta['init_grand_spectra'].append(init_GS_stop - init_GS_start)
+			#submeta['init_grand_spectra'].append(init_GS_stop - init_GS_start)
 			submeta['init_grand_spectra_in_class'].append(init_GS_in_class_stop-init_GS_in_class_start)
-			"""
-			if self.op=="+":
-				submeta['growing_grand_spectra'].append(growing_GS_stop-growing_GS_start)
-				submeta['reinit_grand_spectra_in_class'].append(reinit_GS_in_class_stop-reinit_GS_in_class_start)
-			"""
 			
-			
+		
 			
 	
 	def frequency_index_matcher(self):
@@ -86,7 +81,7 @@ class scan_cl(object):
 		"""
 		tol =  49# Hz
 		cfreqs = self.chunk_axion_frequencies
-		sfreqs = self.scan_axion_frequencies
+		sfreqs = self.scan['axion_frequencies']
 		two_indices = np.array([[],[]]) #first array is indices in chunk, second array is indices in scan
 		
 		si=None
@@ -134,7 +129,9 @@ class scan_cl(object):
 				return two_indices
 		except (IndexError, KeyError) as error:
 			print('frequency matcher failed at scan {0} with error: {1}'.format(self.scan_scan_number, error))
+			open('../meta/error_log', 'a+').write(str(time.time())+ "\n\n"+ str(error))
 			raise
+
 		
 		#reorder nested lists into accending order
 		two_indices[0].sort(); two_indices[1].sort()
@@ -142,7 +139,8 @@ class scan_cl(object):
 		two_indices = [list(map(int, two_indices[0])), list(map(int, two_indices[1]))] # convert elements to integers for indexing
 		return numpy.asarray(two_indices)
 	
-	def axion_fit_consolidation(self):
+	def axion_fit_consolidation(self, inx_start, inx_end):
+		"""
 		optimal_weight_sum = self.chunk_optimal_weight_sum
 		model_excess_sqrd = self.chunk_model_excess_sqrd
 		axion_fit=list(range(len(optimal_weight_sum)))
@@ -153,9 +151,11 @@ class scan_cl(object):
 				axion_fit[i]=np.inf
 			else:
 				axion_fit[i]=optimal_weight_sum[i]/model_excess_sqrd[i]
-		return axion_fit
+		"""
+		return divider(self, self.chunk['optimal_weight_sum'][inx_start:inx_end], self.chunk['model_excess_sqrd'][inx_start:inx_end])
 		
-	def axion_fit_significance_consolidation(self):
+	def axion_fit_significance_consolidation(self, inx_start, inx_end):
+		"""
 		AF = self.chunk_axion_fit
 		sigma_A = self.chunk_axion_fit_uncertainty
 		AFS = list(range(len(AF)))
@@ -166,9 +166,11 @@ class scan_cl(object):
 				AFS[i]=np.inf
 			else:
 				AFS[i] = AF[i]/sigma_A[i]
-		return AFS
+		"""
+		return divider(self, self.chunk['axion_fit'][inx_start:inx_end], self.chunk['axion_fit_uncertainty'][inx_start:inx_end])
 	
-	def coupling_sensitivity_consolidation(self):
+	def coupling_sensitivity_consolidation(self, inx_start, inx_end):
+		"""
 		csensitivity = self.chunk_sensitivity_coupling
 		ssensitivity = self.scan_sensitivity_coupling
 		for i, val in enumerate(csensitivity):
@@ -179,9 +181,11 @@ class scan_cl(object):
 					csensitivity[i]=0
 				else:
 					csensitivity[i] = (1/val**4 - 1/ssensitivity[i]**4)**(-0.25)
-		return csensitivity
+		"""
+		return inverse_root_quadrature(self, self.chunk['sensitivity_coupling'][inx_start:inx_end], self.scan['sensitivity_coupling'], self.op)
 	
-	def maximum_likelihood_uncertainty_consolidation(self):
+	def maximum_likelihood_uncertainty_consolidation(self, inx_start, inx_end):
+		"""
 		axion_fit_uncertainty = self.chunk_axion_fit_uncertainty
 		scan_axion_fit_uncertainty = self.scan_axion_fit_uncertainty
 		for i, val in enumerate(axion_fit_uncertainty):
@@ -192,9 +196,11 @@ class scan_cl(object):
 					axion_fit_uncertainty[i]=0
 				else:
 					axion_fit_uncertainty[i] = (1/val**2 - 1/scan_axion_fit_uncertainty[i]**2)**(0.5)
-		return axion_fit_uncertainty
+		"""
+		return quadrature(self, self.chunk['axion_fit_uncertainty'][inx_start:inx_end], self.scan['axion_fit_uncertainty'], self.op)
 	
-	def model_excess_sqrd_consolidation(self):
+	def model_excess_sqrd_consolidation(self, inx_start, inx_end):
+		"""
 		MES = self.chunk_model_excess_sqrd
 		sMES = self.scan_model_excess_sqrd
 		for i, val in enumerate(MES):
@@ -203,9 +209,11 @@ class scan_cl(object):
 				MES[i] = val + sMES[i]
 			else:
 				MES[i] = val - sMES[i]
-		return MES
+		"""
+		return add_sub(self, self.chunk['model_excess_sqrd'][inx_start:inx_end], self.scan['model_excess_sqrd'], self.op)
 	
-	def noise_power_consolidation(self):
+	def noise_power_consolidation(self, inx_start, inx_end):
+		"""
 		SNR = self.chunk_SNR
 		WS = self.chunk_optimal_weight_sum
 		noise_power=np.asarray([])
@@ -220,9 +228,11 @@ class scan_cl(object):
 					noise_power = np.append(noise_power, SNR[inx]/val)
 		else:
 			noise_power=SNR/WS
-		return noise_power
+		"""
+		return divider(self, self.chunk['SNR'][inx_start:inx_end], self.chunk['optimal_weight_sum'][inx_start:inx_end])
 	
-	def nscan_consolidation(self):
+	def nscan_consolidation(self, inx_start, inx_end):
+		"""
 		nscans=self.chunk_nscans
 		scan_nscan=self.scan_nscans
 		for i, val in enumerate(nscans):
@@ -231,9 +241,11 @@ class scan_cl(object):
 				nscans[i] = val + scan_nscan[i]
 			else:
 				nscans[i] = val - scan_nscan[i]
-		return nscans
+		"""
+		return add_sub(self, self.chunk['nscans'][inx_start:inx_end], self.scan['nscans'], self.op)
 		
-	def optimal_weight_sum_consolidation(self):
+	def optimal_weight_sum_consolidation(self, inx_start, inx_end):
+		"""
 		WS = self.chunk_optimal_weight_sum
 		sWS = self.scan_optimal_weight_sum
 		for i, val in enumerate(WS):
@@ -241,9 +253,11 @@ class scan_cl(object):
 				WS[i] = val + sWS[i]
 			else:
 				WS[i] = val - sWS[i]
-		return WS
+		"""
+		return add_sub(self, self.chunk['optimal_weight_sum'][inx_start:inx_end], self.scan['optimal_weight_sum'], self.op)
 	
-	def power_deviation_consolidation(self):
+	def power_deviation_consolidation(self, inx_start, inx_end):
+		"""
 		power_deviation = self.chunk_power_deviation
 		spower_deviation = self.scan_power_deviation
 		for i, val in enumerate(power_deviation):
@@ -251,9 +265,11 @@ class scan_cl(object):
 				power_deviation[i] = val + spower_deviation[i]
 			else:
 				power_deviation[i] = val - spower_deviation[i]
-		return power_deviation
+		"""
+		return add_sub(self, self.chunk['power_deviation'][inx_start:inx_end], self.scan['power_deviation'], self.op)
 	
-	def power_sensitivity_consolidation(self):
+	def power_sensitivity_consolidation(self, inx_start, inx_end):
+		"""
 		sensitivity = self.chunk_sensitivity_power
 		ssensitivity = self.scan_sensitivity_power
 		for i, val in enumerate(sensitivity):
@@ -264,9 +280,11 @@ class scan_cl(object):
 					sensitivity[i]=0
 				else:
 					sensitivity[i]=(1/val**2 - 1/ssensitivity[i]**2)**(-0.5)
-		return sensitivity
+		"""
+		return inverse_quadrature(self, self.chunk['sensitivity_power'][inx_start:inx_end], self.scan['sensitivity_power'], self.op)
 		
-	def sigma_A_consolidation(self):
+	def sigma_A_consolidation(self, inx_start, inx_end):
+		"""
 		sigma_A = self.chunk_axion_fit_uncertainty
 		ssigma_A = self.scan_axion_fit_uncertainty
 		for i, val in enumerate(sigma_A):
@@ -277,11 +295,11 @@ class scan_cl(object):
 					sigma_A[i]=0
 				else:
 					sigma_A[i] = (np.abs(1/(val**2) - 1/(ssigma_A[i]**2)))**(1/2)
-		return sigma_A
+		"""
+		return quadrature(self, self.chunk['axion_fit_uncertainty'][inx_start:inx_end], self.scan['axion_fit_uncertainty'], self.op)
 	
-	def SNR_consolidation(self):
-		cSNR = self.chunk_SNR
-		sSNR = self.scan_SNR
+	def SNR_consolidation(self, inx_start, inx_end):
+		"""
 		for i, val in enumerate(cSNR):
 			if self.op == "+":
 				cSNR[i] = (val**2 + sSNR[i]**2)**(1/2)
@@ -290,9 +308,16 @@ class scan_cl(object):
 					cSNR[i]=0
 				else:
 					cSNR[i] = (val**2 - sSNR[i]**2)**(1/2)
-		return cSNR
-	
+		"""
+		try:
+			return quadrature(self, self.chunk['SNR'][inx_start:inx_end], self.scan['SNR'], self.op)
+		except IndexError:
+			print(self.scan_scan_number)
+			print(len(self.scan['SNR']))
+			raise
+	"""
 	def weighted_delta_consolidation(self):
+		
 		weighted_deltas = self.chunk_weighted_deltas
 		swds = self.scan_weighted_deltas
 		for i, val in enumerate(weighted_deltas):
@@ -301,27 +326,26 @@ class scan_cl(object):
 				weighted_deltas[i] = val + swds[i]
 			else:
 				weighted_deltas[i] = val - swds[i]
-		return weighted_deltas
-	
+		
+		return add_sub(self, self.chunk_weighted_deltas, self.scan['weighted_deltas'], self.op)
+	"""
 	def close_out(self, chunk):
-		chunk['nscans'][self.chunk_indices] = self.chunk_nscans
-		chunk['sigma_w'][self.chunk_indices] = self.chunk_sigma_w
-		chunk['optimal_weight_sum'][self.chunk_indices] = self.chunk_optimal_weight_sum
-		chunk['SNR'][self.chunk_indices] = self.chunk_SNR
-		chunk['noise_power'][self.chunk_indices] = self.chunk_noise_power
-		chunk['power_deviation'][self.chunk_indices] = self.chunk_power_deviation
-		chunk['model_excess_sqrd'][self.chunk_indices] = self.chunk_model_excess_sqrd
-		chunk['axion_fit'][self.chunk_indices] = self.chunk_axion_fit
-		chunk['axion_fit_uncertainty'][self.chunk_indices] = self.chunk_axion_fit_uncertainty
-		chunk['sensitivity_power'][self.chunk_indices] = self.chunk_sensitivity_power
-		chunk['sensitivity_coupling'][self.chunk_indices] = self.chunk_sensitivity_coupling
-		chunk['scans_in'][...] = chunk['scans_in'][...]
-		chunk['scans_out'][...] = chunk['scans_out'][...]
-		
+		chunk['nscans'][...] = self.chunk['nscans']
+		chunk['sigma_w'][...] = self.chunk['sigma_w']
+		chunk['optimal_weight_sum'][...] = self.chunk['optimal_weight_sum']
+		chunk['SNR'][...] = self.chunk['SNR']
+		chunk['noise_power'][...] = self.chunk['noise_power']
+		chunk['power_deviation'][...] = self.chunk['power_deviation']
+		chunk['model_excess_sqrd'][...] = self.chunk['model_excess_sqrd']
+		chunk['axion_fit'][...] = self.chunk['axion_fit']
+		chunk['axion_fit_uncertainty'][...] = self.chunk['axion_fit_uncertainty']
+		chunk['sensitivity_power'][...] = self.chunk['sensitivity_power']
+		chunk['sensitivity_coupling'][...] = self.chunk['sensitivity_coupling']
+		chunk['last_change'][...] = self.chunk['last_change']
 
 		
 
-def add_subtract_scan(add_subtract, scan, chunk, scan_id, **params):
+def add_subtract_scan(add_subtract, scan, object, scan_id, grand_spectra_group, **params):
 	"""
 	Parameters
 		add_subtract: ('add', 'subtract') Determines what to do with scan
@@ -331,84 +355,104 @@ def add_subtract_scan(add_subtract, scan, chunk, scan_id, **params):
 	"""
 	#initialize scan object	
 	if add_subtract == "add":
-		op = "+"
+		object.op = "+"
 	elif add_subtract == "subtract":
-		op = "-"
+		object.op = "-"
 	else:
 		return "Error: combining operation not recognized. Available operations are 'add' and 'subtract'"
 		
 	#Running initiliazation procedure for chunks, i.e. create missing arrays.
 	#chunk = initialization(chunk) 									Not currently using.
-	if op=="+" and (scan_id.encode() in chunk["scans_in"]):
+	"""
+	check_member_start = time.time()
+	if op=="+" and len(numpy.where(chunk["scans_in"]==scan_id.encode())[0])!=0:
 		phrase = "scan " + str(scan_id) + " already added. Skipping coaddition"
 		#print(phrase)
 		return phrase
-	elif op=="-" and (scan_id.encode() in chunk["scans_out"]):
+	elif op=="-" and len(numpy.where(chunk["scans_out"]==scan_id.encode())[0])!=0:
 		phrase = "scan " + str(scan_id) + " already subtracted. Skipping coaddition"
 		#print(phrase)
 		return phrase
-	
-	
-	class_init_start = time.time()
-	scan_obj = scan_cl(scan=scan, scid = scan_id, chunk=chunk, op=op, **params)
-	class_init_stop = time.time()
+	check_member_stop = time.time()
+	"""
 	
 	corrupt_scan=False
 	if type(scan) is str:
 		corrupt_scan = True
 		add_subtract = 'ommit'
-		op = 'nil'
-
-
+		object.op = 'nil'
+	
+	
+	attaching_new_scan_to_class_start = time.time()
+	object.scan = scan
+	object.scan_scan_number = scan_id
+	attaching_new_scan_to_class_stop = time.time()
+	
+	calculating_indices_start = time.time()
+	appended_length = len(scan['axion_frequencies'])
+	mid_freq = scan['middle_frequency']
+	ainx_start = int(numpy.round((mid_freq - grand_spectra_group['axion_frequencies'][0])/(95.4)) - appended_length/2)
+	ainx_end = int(ainx_start + appended_length)
+	inx_start = int(numpy.round((mid_freq - grand_spectra_group['axion_frequencies'][0])/(95.4)) - 256/2)
+	inx_end = int(inx_start + 256)
+	calculating_indices_stop = time.time()
+	
 	consolidation_time_start = time.time()
-	if not corrupt_scan and op!='nil':
-		opt_wght_sum_start = time.time()
-		scan_obj.chunk_optimal_weight_sum = scan_obj.optimal_weight_sum_consolidation()
-		opt_wght_sum_stop = time.time()
-		scan_obj.chunk_model_excess_sqrd = scan_obj.model_excess_sqrd_consolidation()
-		nscans_stop = time.time()
-		scan_obj.chunk_nscans = scan_obj.nscan_consolidation()
-		SNR_stop = time.time()
-		scan_obj.chunk_SNR = scan_obj.SNR_consolidation()
-		sigma_A_stop = time.time()
-		scan_obj.chunk_axion_fit_uncertainty = scan_obj.sigma_A_consolidation()
-		power_dev_stop = time.time()
-		scan_obj.chunk_power_deviation = scan_obj.power_deviation_consolidation() #formerly weighted deltas
-		coupl_sens_stop = time.time()
-		scan_obj.chunk_sensitivity_coupling = scan_obj.coupling_sensitivity_consolidation()
-		power_sens_stop = time.time()
-		scan_obj.chunk_sensitivity_power = scan_obj.power_sensitivity_consolidation()
-		noise_pow_stop = time.time()
-		scan_obj.chunk_noise_power = scan_obj.noise_power_consolidation()
-		axion_fit_stop = time.time()
-		scan_obj.chunk_axion_fit = scan_obj.axion_fit_consolidation()
-		axion_fit_sig_stop = time.time()
-		scan_obj.chunk_axion_fit_significance = scan_obj.axion_fit_significance_consolidation()
-		scans_start = time.time()
-		addtodataset(chunk['scans'], scan_id)
-		scans_stop = time.time()
+	if not corrupt_scan and object.op!='nil':
+		try:
+			opt_wght_sum_start = time.time()
+			object.chunk['optimal_weight_sum'][ainx_start:ainx_end] = object.optimal_weight_sum_consolidation(ainx_start, ainx_end)
+			opt_wght_sum_stop = time.time()
+			object.chunk['model_excess_sqrd'][ainx_start:ainx_end] = object.model_excess_sqrd_consolidation(ainx_start, ainx_end)
+			nscans_stop = time.time()
+			object.chunk['nscans'][ainx_start:ainx_end] = object.nscan_consolidation(ainx_start, ainx_end)
+			SNR_stop = time.time()
+			object.chunk['SNR'][ainx_start:ainx_end] = object.SNR_consolidation(ainx_start, ainx_end)
+			sigma_A_stop = time.time()
+			object.chunk['axion_fit_uncertainty'][ainx_start:ainx_end] = object.sigma_A_consolidation(ainx_start, ainx_end)
+			power_dev_stop = time.time()
+			object.chunk['power_deviation'][inx_start:inx_end] = object.power_deviation_consolidation(inx_start, inx_end) #formerly weighted deltas
+			coupl_sens_stop = time.time()
+			object.chunk['sensitivity_coupling'][ainx_start:ainx_end] = object.coupling_sensitivity_consolidation(ainx_start, ainx_end)
+			power_sens_stop = time.time()
+			object.chunk['sensitivity_power'][ainx_start:ainx_end] = object.power_sensitivity_consolidation(ainx_start, ainx_end)
+			noise_pow_stop = time.time()
+			object.chunk['noise_power'][ainx_start:ainx_end] = object.noise_power_consolidation(ainx_start, ainx_end)
+			axion_fit_stop = time.time()
+			object.chunk['axion_fit'][ainx_start:ainx_end] = object.axion_fit_consolidation(ainx_start, ainx_end)
+			axion_fit_sig_stop = time.time()
+			object.chunk['axion_fit_significance'][ainx_start:ainx_end] = object.axion_fit_significance_consolidation(ainx_start, ainx_end)
+			scans_start = time.time()
+			"""
+			#addtodataset(chunk['scans'], scan_id)
+			scans_stop = time.time()
+			"""
+		except (MemoryError, KeyError, IndexError) as error:
+			open('../meta/error_log', 'a+').write(str(time.time())+ "\n\n"+ str(error))
+			print("Error with scan {0}. Writing to error log. ".format(scan_id))
+			raise
 	consolidation_time_stop = time.time()
 	
-	scans_in_start = time.time()
-	if add_subtract=='add':
-		addtodataset(chunk['scans_in'], scan_id)
-		subtractfromdataset(chunk['scans_out'], array_or_string=scan_id)
-	elif add_subtract=="subtract":
-		addtodataset(chunk['scans_out'], scan_id)
-		subtractfromdataset(chunk['scans_in'], array_or_string=scan_id)
-	scans_in_stop = time.time()
-	
-	
+	lastcalc_start = time.time()
 	lastcalc = dt.datetime.now()
 	lastcalc = lastcalc.strftime('%Y-%m-%d %H:%M:%S')
-	chunk.attrs["last_change"] = str(lastcalc)
+	object.chunk_last_change = str(lastcalc)
+	last_calc_stop = time.time()
 
+	close_out_start = time.time()
+	#object.close_out(grand_spectra_group)
+	close_out_stop = time.time()
+	
+	
+	
+	
+	
 	
 	submeta = params['submeta']
 	if submeta['timeit']:
 		submeta['consolidation_time'].append(consolidation_time_stop-consolidation_time_start)
-		submeta['scans_in_time'].append(scans_in_stop-scans_in_start)
-		submeta['class_init_time'].append(class_init_stop-class_init_start)
+		#submeta['scans_in_time'].append(scans_in_stop-scans_in_start)
+		#submeta['class_init_time'].append(class_init_stop-class_init_start)
 		submeta['optimal_weight_sum_consolidation_time'].append(opt_wght_sum_stop-opt_wght_sum_start)
 		submeta['model_excess_sqrd_consolidation_time'].append(nscans_stop-opt_wght_sum_stop)
 		submeta['nscan_consolidation_time'].append(SNR_stop-nscans_stop)
@@ -420,9 +464,40 @@ def add_subtract_scan(add_subtract, scan, chunk, scan_id, **params):
 		submeta['noise_power_consolidation_time'].append(axion_fit_stop-noise_pow_stop)
 		submeta['axion_fit_consolidation_time'].append(axion_fit_sig_stop-axion_fit_stop)
 		submeta['axion_fit_significance_consolidation_time'].append(scans_start-axion_fit_sig_stop)
-		submeta['scans_in_grand_spectra_addition_time'].append(scans_stop-scans_start)
+		#submeta['scans_in_grand_spectra_addition_time'].append(scans_stop-scans_start)
+		submeta['last_calc_time'].append(last_calc_stop-lastcalc_start)
+		submeta['calculating_indices'].append(calculating_indices_stop-calculating_indices_start)
+		submeta['attaching_new_scan_to_class'].append(attaching_new_scan_to_class_stop-attaching_new_scan_to_class_start)
+		submeta['close_out'].append(close_out_stop-close_out_start)
+		#submeta['check_member_time'].append(check_member_stop-check_member_start)
 	
-	scan_obj.close_out(chunk)
+
+	
+	"""
+	if add_subtract=='add':
+		inx_empty = numpy.where(chunk['scans_in'][...]==''.encode())[0] #array-like
+		inx_id = numpy.where(chunk['scans_out'][...]==scan_id.encode())[0] #array-like
+		if len(inx_empty)!=0:
+			chunk['scans_in'][inx_empty[0]]=scan_id.encode()
+		else:
+			addtodataset(chunk['scans_in'], scan_id.encode())
+		if len(inx_id)!=0:
+			chunk['scans_out'][inx_id[0]]=''.encode()
+		else:
+			pass
+			
+	elif add_subtract=="subtract":
+		inx_empty = numpy.where(chunk['scans_out'][...]==''.encode())[0] #array-like
+		inx_id = numpy.where(chunk['scans_in'][...]==scan_id.encode())[0] #array-like
+		if len(inx_empty)!=0:
+			chunk['scans_out'][inx_empty[0]]=scan_id.encode()
+		else:
+			addtodataset(chunk['scans_out'], scan_id.encode())
+		if len(inx_id)!=0:
+			chunk['scans_in'][inx_id[0]]=''.encode()
+		else:
+			pass
+	"""
 	
 	
 def initialize_datapoints(chunk, scan, matched_indices):
@@ -488,6 +563,70 @@ def initialize_datapoints(chunk, scan, matched_indices):
 		
 	return chunk
 
+	
+@jit
+def divider(self, a1, a2):
+	afit = list(range(len(a1)))
+
+	for i in range(len(a1)):
+		if a1[i]==0 and a2[i]==0:
+			afit[i]=0
+		elif a1[i]!=0 and a2[i]==0:
+			afit[i]=np.inf
+		else:
+			afit[i]=a1[i]/a2[i]
+	return afit
+
+@jit
+def inverse_root_quadrature(self, a1, a2, op):
+	for i in range(len(a1)):
+		if self.op=="+":
+			a1[i] = (1/(a1[i]**4) + 1/(a2[i]**4))**(-1/4)
+		else:
+			if (1/a1[i])<(1/a2[i]):
+				a1[i]==0
+			else:
+				a1[i] = (1/(a1[i]**4) - 1/(a2[i]**4))**(-1/4)
+	return a1
+	
+@jit
+def quadrature(self, a1, a2, op):
+	for i in range(len(a1)):
+		if self.op=="+":
+			a1[i] = (1/(a1[i]**4) + 1/(a2[i]**4))**(1/2)
+		else:
+			if (1/a1[i])<(1/a2[i]):
+				a1[i]==0
+			else:
+				a1[i] = (1/(a1[i]**4) - 1/(a2[i]**4))**(1/2)
+	return a1
+
+@jit
+def inverse_quadrature(self, a1, a2, op):
+	for i in range(len(a1)):
+		if self.op=="+":
+			a1[i] = (1/(a1[i]**4) + 1/(a2[i]**4))**(-1/2)
+		else:
+			if (1/a1[i])<(1/a2[i]):
+				a1[i]==0
+			else:
+				a1[i] = (1/(a1[i]**4) - 1/(a2[i]**4))**(-1/2)
+	return a1
+
+@jit
+def add_sub(self, a1, a2, op):
+	for i in range(len(a1)):
+		if op=="+":
+			a1[i]+= a2[i]
+		else:
+			a1[i]-+a2[i]
+	return a1
+		
+				
+	
+	
+	
+	
 """
 #initialize attribute arrays to be populated (coadded)
 if self.op=="+":

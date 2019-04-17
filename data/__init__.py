@@ -7,6 +7,7 @@ Creation Date: 10/26/18
 import sys
 sys.path.append("../experiment")
 sys.path.append("..")
+import time
 from get_squid_dataset import get_squid_dataset
 def input(parameters):
 	# sets up start and stop parameters
@@ -25,27 +26,29 @@ def input(parameters):
 	dig_dataset = {}
 	no_axion_log = []
 	counter = 0
-	paritioned = False
+	partitioned = False
+	
 	try:
-		for key in range(start, stop):
+		for key in range(start, stop) :
 			try:
-				dataset_toadd = data_file['digitizer_log_run1a'][str(key)]
-				if 'alog_timestamp' in dataset_toadd.attrs:
-					dig_dataset[str(key)] = dataset_toadd
-					counter += 1
-				if not 'alog_timestamp' in dataset_toadd.attrs:
-					no_axion_log.append(str(key))
+				if key not in parameters['bad_scans']:
+					dataset_toadd = data_file['digitizer_log_run1a'][str(key)]
+					if 'alog_timestamp' in dataset_toadd.attrs:
+						dig_dataset[str(key)] = dataset_toadd
+						counter += 1
+					if not 'alog_timestamp' in dataset_toadd.attrs:
+						no_axion_log.append(str(key))
 			except KeyError:
 				pass
-			if counter>=10000:
+			if counter>=5000:
 				partitioned = True
 				break
 
-		
-	except Exception:
+	except Exception as error:
 		data_file.close()
+		open('../meta/error_log', 'a+').write(str(time.time())+ "\n\n"+ str(error))
 		raise
-	return dig_dataset, data_file, no_axion_log, paritioned
+	return dig_dataset, data_file, no_axion_log, partitioned
 
 def add_input(database,trait,trait_name):
 	"""function takes trait in dictionary form and inputs attribute into
@@ -53,12 +56,17 @@ def add_input(database,trait,trait_name):
 	 If dataset doesnt havent attribute <trait_name>, function automatically creates and populates it with <trait>
 	"""
 	for key in trait.keys():
-		if trait_name in database[key].attrs:
-			database[key].attrs[trait_name] = trait[key]
-		elif trait_name not in database[key].attrs:
-			database[key].attrs.create(trait_name, trait[key])
-	return database
-	
+		try:
+		
+			if trait_name in database[key].attrs:
+				database[key].attrs[trait_name] = trait[key]
+			elif trait_name not in database[key].attrs:
+				database[key].attrs.create(trait_name, trait[key])
+			return database
+		except RuntimeError as error:
+			print("Error with adding input (key {0}, trait {1}, trait_name {2}".format(key, trait, trait_name))
+			open('../meta/error_log', 'a+').write(str(time.time())+ "\n\n"+ str(error))
+			raise
 	"""
 	for i in range(start,stop):
 		try:
