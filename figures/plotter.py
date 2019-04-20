@@ -159,15 +159,16 @@ class figures_class():
 		
 	def scan_rate(self, **kwargs):
 		"""
-		Plot the number of scans per frequency
+		Plot the number of scans per frequency   ### NOTE: Use logarithmic y-axis
 		"""
 	
 	
 	def deltas(self, **kwargs):
 		"""
-		Plot the deltas as histogram. Measures gaussianity of data
+		Plot the deltas as histogram. Measures gaussianity of data. ### stack all deltas on top of one another and measure dispersion that way + distribution.
 		"""
-	
+		deltas = self.grand_spectra_group['power_deviation']
+		
 	
 	def injected_signals(self, **kwargs):
 		"""

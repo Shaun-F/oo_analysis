@@ -33,7 +33,7 @@ class signal(object):
 
 	def SHM(self,freq, mass, modulation_vel):
 		sigma_v = 160
-		v_lab = modulation_vel + sigma_v*np.sqrt(2)
+		v_lab = modulation_vel
 
 		return self.ITS(freq, mass, sigma_v, v_lab)
 
@@ -97,9 +97,8 @@ class signal(object):
 		RME = mass #Rest Mass energy of Axion in eV
 		m = RME/(c**2) #Mass of Axion in eV/c^2
 		E = freq*h*10**(6) #Energy of equivalent photon at input frequency in Hz
-		KE = E-RME #Kinetic energy of axion in eV
-		if KE<0:
-			KE=0 #Unphysical kinetic energy values caused by floating point error
+		KE = np.asarray(E-RME) #Kinetic energy of axion in eV
+		KE[KE<0]=0 #Unphysical kinetic energy values caused by floating point error
 		rmfreq = (RME/h)*10**(-6) # Rest mass frequency of axion
 		v = c*np.sqrt((2*KE)/RME) #velocity of axion
 		beta = 1/(2*(sigma_v**2)) #this is the beta from turner 1990
