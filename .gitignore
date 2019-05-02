@@ -41,3 +41,5 @@ Thumbs.db
 run1a_data.hdf5
 frequencies.txt
 frequencies
+scan_rate.txt
+scan_rate

@@ -31,16 +31,8 @@ class transformer():
 	
 			cenpa_Galactic_centered = cenpa_ITRS.transform_to(coord.Galactocentric)  #Current bottleneck
 		
-			#get tangential velocity
-			x = cenpa_Galactic_centered.x.value
-			y = cenpa_Galactic_centered.y.value
-			vx = cenpa_Galactic_centered.v_x.value
-			vy = cenpa_Galactic_centered.v_y.value
-			
-			cenpa_tangential_velocity = (y*vx - x*vy)/(numpy.sqrt(x**2 + y**2)) + numpy.arctan(y/x)*(x*vx + y*vy)/(numpy.sqrt(x**2 + y**2))
-			{timestamp[i]: cenpa_tangential_velocity[i] for i in range(len(timestamp))}
-			return {timestamp[i]: cenpa_tangential_velocity[i] for i in range(len(timestamp))} #Tangential velocity to galactic center
-		
+			#returns vector
+			return numpy.asarray([cenpa_Galactic_centered.v_x.value, cenpa_Galactic_centered.v_y.value, cenpa_Galactic_centered.v_z.value])
 		
 		elif isinstance(timestamp, str):
 			times = astropy.time.Time(parse(timestamp))
@@ -57,15 +49,8 @@ class transformer():
 		
 			cenpa_Galactic_centered = cenpa_ITRS.transform_to(coord.Galactocentric)  #Current bottleneck
 			
-			#get tangential velocity
-			x = cenpa_Galactic_centered.x.value
-			y = cenpa_Galactic_centered.y.value
-			vx = cenpa_Galactic_centered.v_x.value
-			vy = cenpa_Galactic_centered.v_y.value
-			
-			cenpa_tangential_velocity = (y*vx - x*vy)/(numpy.sqrt(x**2 + y**2)) + numpy.arctan(y/x)*(x*vx + y*vy)/(numpy.sqrt(x**2 + y**2))
-			return {timestamp:cenpa_tangential_velocity} #Tangential velocity to galactic center	
-		
+			#returns vector
+			return numpy.asarray([cenpa_Galactic_centered.v_x.value, cenpa_Galactic_centered.v_y.value, cenpa_Galactic_centered.v_z.value])
 		
 		elif isinstance(timestamp, dict):
 			timestamp = list(timestamp.values())
@@ -83,16 +68,9 @@ class transformer():
 	
 			cenpa_Galactic_centered = cenpa_ITRS.transform_to(coord.Galactocentric)  #Current bottleneck
 		
-			#get tangential velocity
-			x = cenpa_Galactic_centered.x.value
-			y = cenpa_Galactic_centered.y.value
-			vx = cenpa_Galactic_centered.v_x.value
-			vy = cenpa_Galactic_centered.v_y.value
+			#returns vector
+			return {timestamp[i]: [cenpa_Galactic_centered.v_x.value[i], cenpa_Galactic_centered.v_y.value[i], cenpa_Galactic_centered.v_z.value[i]] for i in range(len(timestamp))}
 			
-			cenpa_tangential_velocity = (y*vx - x*vy)/(numpy.sqrt(x**2 + y**2)) + numpy.arctan(y/x)*(x*vx + y*vy)/(numpy.sqrt(x**2 + y**2))
-			{timestamp[i]: cenpa_tangential_velocity[i] for i in range(len(timestamp))}
-			return {timestamp[i]: cenpa_tangential_velocity[i] for i in range(len(timestamp))} #Tangential velocity to galactic center	
-		
 		
 		
 		#coord.ITRS(cenpa_location_xyz.x, cenpa_location_xyz.y, cenpa_location_xyz.z, representation_type = coord.CartesianRepresentation, v_x=0*(u.km/u.s), v_y=0*(u.km/u.s), v_z=0*(u.km/u.s), differential_type = coord.CartesianDifferential, obstime=time)
@@ -118,16 +96,11 @@ class transformer():
 		
 		gvel = coord.ICRS(x = pos.x.value*u.km, y = pos.y.value*u.km, z = pos.z.value*u.km,v_x = vel.x.value*u.km/u.s, v_y = vel.y.value*u.km/u.s, v_z = vel.z.value*u.km/u.s,representation_type = coord.CartesianRepresentation,differential_type = coord.CartesianDifferential).transform_to(coord.Galactocentric)
 		
-		x = gvel.x.value
-		y = gvel.y.value
-		vx = gvel.v_x.value
-		vy = gvel.v_y.value
-		
-		earth_tangential_velocity = (y*vx - x*vy)/(numpy.sqrt(x**2 + y**2)) + numpy.arctan(y/x)*(x*vx + y*vy)/(numpy.sqrt(x**2 + y**2))
-		return earth_tangential_velocity
+		return numpy.asarray([gvel.v_x.value, gvel.v_y.value, gvel.v_z.value])
 		
 	def solar_vel_GalacticFrame(self):
-		return coord.Galactocentric().galcen_v_sun.norm().value
+		galcen_v_sun = coord.Galactocentric().galcen_v_sun
+		return numpy.asarray([galcen_v_sun.d_x.value, galcen_v_sun.d_y.value, galcen_v_sun.d_z.value]) #km/s
 
 
 

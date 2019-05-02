@@ -13,6 +13,7 @@ from experiment.calc_sys_temp_offline import calc_sys_temp
 import time; import datetime
 import argparse
 from toolbox.plot_dataset import plotter
+from toolbox.freq_to_mass import freq_to_mass
 
 ############# Argument parsing
 P = argparse.ArgumentParser(description="Main execution file for oo_analysis")
@@ -72,14 +73,14 @@ class core_analysis():
 			del self.h5py_file['grand_spectra_run1a']	
         # derive necessary experiment data structures (put into dig_dataset)
 		#Populate parameter dict's with dataset attributes.
-		self.Tsys = {key: self.dig_dataset[key].attrs["squid_temperature"] for key in self.keys}
-		self.timestamp = {key: self.dig_dataset[key].attrs["alog_timestamp"] for key in self.keys}
-		self.mode_frequencies = {key: self.dig_dataset[key].attrs['mode_frequency'] for key in self.keys}
-		self.fstart = {key: float(self.dig_dataset[key].attrs["start_frequency"]) for key in self.keys}
-		self.fstop = {key: float(self.dig_dataset[key].attrs["stop_frequency"]) for key in self.keys}
-		self.Q = {key: float(self.dig_dataset[key].attrs["Q"]) for key in self.keys}
-		self.notes = {key: self.dig_dataset[key].attrs["notes"] for key in self.keys}
-		#self.afreq = self.axion_mass/(4.13566766*10**(-15)) #attach axion freq to object
+		self.Tsys = {key: self.dig_dataset[key].attrs["squid_temperature"] for key in self.keys} #temperature of system during scan
+		self.timestamp = {key: self.dig_dataset[key].attrs["alog_timestamp"] for key in self.keys} #timestamp of scan
+		self.mode_frequencies = {key: self.dig_dataset[key].attrs['mode_frequency'] for key in self.keys} #mode frequency of scan
+		self.axion_mass = {key: freq_to_mass(self.mode_frequencies[key]*10**6) for key in self.keys} #axion mass in eV with corresponding frequency equal to mode frequency
+		self.fstart = {key: float(self.dig_dataset[key].attrs["start_frequency"]) for key in self.keys} #starting frequencies of scans
+		self.fstop = {key: float(self.dig_dataset[key].attrs["stop_frequency"]) for key in self.keys} #ending frequencies of scans
+		self.Q = {key: float(self.dig_dataset[key].attrs["Q"]) for key in self.keys} #quality factor during scan
+		self.notes = {key: self.dig_dataset[key].attrs["notes"] for key in self.keys} #notes attached to scan
 
 		data.add_input(self.dig_dataset,self.Tsys,'Tsys')
 		# derive necessary digitization structures??

@@ -429,7 +429,7 @@ def add_subtract_scan(add_subtract, scan, object, scan_id, grand_spectra_group, 
 			"""
 		except (MemoryError, KeyError, IndexError) as error:
 			open('../meta/error_log', 'a+').write(str(time.time())+ "\n\n"+ str(error))
-			print("Error with scan {0}. Writing to error log. ".format(scan_id))
+			print("Error with scan {0} in coaddition script. Writing to error log. ".format(scan_id))
 			raise
 	consolidation_time_stop = time.time()
 	

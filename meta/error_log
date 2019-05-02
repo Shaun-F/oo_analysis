@@ -60,4 +60,66 @@ modulatedsignal() missing 1 required positional argument: 'modulated_velocity'15
 
 'signa'1554321107.6081882
 
-'signa'
+'signa'1555980384.637274
+
+modulatedsignal() takes 5 positional arguments but 6 were given1555980688.2102978
+
+scalar 'CartesianDifferential' object is not iterable.1555980719.5629754
+
+'Quantity' object with a scalar value does not support indexing1555980872.1860352
+
+unsupported operand type(s) for *: 'dict' and 'dict'1555980931.5482247
+
+unsupported operand type(s) for *: 'dict' and 'dict'1555981036.9453933
+
+unsupported operand type(s) for *: 'dict' and 'dict'1555981100.4314778
+
+unsupported operand type(s) for *: 'dict' and 'dict'1555981180.3814964
+
+unsupported operand type(s) for *: 'dict' and 'dict'1555981261.4032245
+
+unsupported operand type(s) for *: 'dict' and 'dict'1555991015.6732287
+
+invalid syntax (modulation.py, line 176)1555992049.8008544
+
+'float' object is not subscriptable1556663237.8514447
+
+invalid syntax (MR_scan_analysis.py, line 219)1556663270.293793
+
+unindent does not match any outer indentation level (MR_scan_analysis.py, line 233)1556663302.496329
+
+invalid syntax (MR_scan_analysis.py, line 246)1556663433.6800163
+
+invalid syntax (MR_scan_analysis.py, line 233)1556663942.3746285
+
+unsupported operand type(s) for ** or pow(): 'list' and 'int'1556663974.4012544
+
+unsupported operand type(s) for ** or pow(): 'list' and 'int'1556663983.4793584
+
+unsupported operand type(s) for ** or pow(): 'list' and 'int'1556664144.2247453
+
+can't multiply sequence by non-int of type 'numpy.float64'1556664207.649533
+
+can't multiply sequence by non-int of type 'numpy.float64'1556664415.0717614
+
+only integers, slices (`:`), ellipsis (`...`), numpy.newaxis (`None`) and integer or boolean arrays are valid indices1556664468.7024982
+
+only integers, slices (`:`), ellipsis (`...`), numpy.newaxis (`None`) and integer or boolean arrays are valid indices1556664590.4770987
+
+index 256 is out of bounds for axis 0 with size 2561556664590.5014074
+
+index 256 is out of bounds for axis 0 with size 2561556837072.1547754
+
+index 256 is out of bounds for axis 0 with size 2561556837072.1647058
+
+index 256 is out of bounds for axis 0 with size 2561556837275.1415303
+
+index 256 is out of bounds for axis 0 with size 2561556837275.1515064
+
+index 256 is out of bounds for axis 0 with size 2561556837873.7701762
+
+operands could not be broadcast together with shapes (284,) (256,) 1556838091.5458376
+
+EOL while scanning string literal (MR_scan_analysis.py, line 236)1556838107.9943492
+
+operands could not be broadcast together with shapes (284,) (256,) 

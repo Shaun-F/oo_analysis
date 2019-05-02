@@ -15,8 +15,8 @@ filter_params=[10,3]
 nbins=256
 
 pull_data='true'
-start_scan=388518
-end_scan=561151
+start_scan=516070
+end_scan=516071
 bad_scans_file="../bad_scans.param"
 restype="MR"
 
@@ -26,4 +26,3 @@ stat_interp='chi2'
 parallel='GPU'
 
 #axion specific parameters
-axion_mass=0.000003 

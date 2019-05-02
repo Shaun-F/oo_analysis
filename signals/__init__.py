@@ -26,7 +26,7 @@ def generate(object):
 	
 	# get callable signal
 	signal_gen_start = time.time()
-	signal = slib.signal(sigparams)
+	#signal = slib.signal(sigparams) #can generate signals and modulate at the same time.
 	signal_gen_stop = time.time()
 	
 	#meta analysis

@@ -7,6 +7,7 @@ Creation Date: 6/1/18
 import numpy as np
 import scipy as sp
 from astropy import constants as Cnsts
+from astropy import units as U
 from datetime import datetime as dt
 import pytz
 import matplotlib.pyplot as plt
@@ -32,6 +33,9 @@ class signal(object):
 		return np.ones(n_bins)/n_bins
 
 	def SHM(self,freq, mass, modulation_vel):
+		"""
+		Modulation_vel is the total velocity of the experiment around the galactic center
+		"""
 		sigma_v = 160
 		v_lab = modulation_vel
 
@@ -61,10 +65,10 @@ class signal(object):
 
 		return pCDM_maxwell_like_form(mass,freq,v_lab,alpha,beta,T)
 
-	def pCDM_maxwell_like_form(self,mass,freq,v_lab, alpha,beta,T):
+	def pCDM_maxwell_like_form(self, mass, freq, v_lab, vsol, alpha, beta, T):
 		"""
 		Description:Function gives the frequency power spectra for halo axions as modeled by the N-Body simulation using pCDM, parameterized by three values alpha, beta, T
-		Parameters:mass of axion (eV), sampling frequency (Hz), velocity of laboratory (km/s), parameter values of N-Body simulation
+		Parameters:mass of axion (eV), sampling frequency (Hz), velocity of laboratory (vector in km/s), solar velocity (vector in km/s), parameter values of N-Body simulation
 		Output: Power spectra of axion
 		"""
 		f = freq*10**6 #sampling frequency
@@ -72,11 +76,11 @@ class signal(object):
 		RME = mass #Rest mass energy of axion
 		h = Cnsts.h.value*6.242*10**18 # plancks constant in ev*s
 		fo = RME/h # Rest mass frequency of axion
-		vsol = 240 # average solar speed in km/s
-
+		
+		v_pec = v_lab-vsol #peculiar velocity of experiment around sun
 		gamma = sp.special.gamma((1.0+alpha)/beta)
 		Cnum = beta
-		Boost = 1-v_lab*vsol/(vsol**2)
+		Boost = 1-sum(v_pec*vsol)/((vsol**2).sum())
 		Cden = ((Boost/(T*fo))**beta)**(-(1.0+alpha)/beta)*(Boost/(T*fo))**(alpha)*gamma
 		Cnst = Cnum/Cden
 
@@ -91,35 +95,34 @@ class signal(object):
 		"""Description: Function takes in parameters and outputs probability to find axion at input frequency
 		Parameters: frequency (MHz) to find corresponding probability. Mass of axion in ev. velocity dispersion of axions in Kilometers per second. velocity of laboratory in galactic frame in Kilometers per second.
 		Output: Probability to find axion at input frequency"""
-
-		c = Cnsts.c.value*10**(-3) #Speed of light in kilometers per second
-		h = Cnsts.h.value*6.242*10**18 #Plancks constant in units eV seconds
+		if isinstance(freq, float) or isinstance(freq, int):
+			freq = [freq] #convert to list
+		freq_arr = np.asarray(freq) * 10**(6) #in Hz
+		
+		c = Cnsts.c.to(U.km/U.s).value #Speed of light in kilometers per second
+		h = Cnsts.h.to(U.eV*U.s).value #Plancks constant in units eV seconds
 		RME = mass #Rest Mass energy of Axion in eV
-		m = RME/(c**2) #Mass of Axion in eV/c^2
-		E = freq*h*10**(6) #Energy of equivalent photon at input frequency in Hz
-		KE = np.asarray(E-RME) #Kinetic energy of axion in eV
-		KE[KE<0]=0 #Unphysical kinetic energy values caused by floating point error
-		rmfreq = (RME/h)*10**(-6) # Rest mass frequency of axion
-		v = c*np.sqrt((2*KE)/RME) #velocity of axion
+		rmfreq = (RME/h) # Rest mass frequency of axion
+		v = np.sqrt(2) * c * np.sqrt((freq_arr*h)/(RME) - 1) #velocity of axion
+		v_lab_mag = np.linalg.norm(v_lab) #speed of the experiment in a right handed coordinate system center on the galactic center
 		beta = 1/(2*(sigma_v**2)) #this is the beta from turner 1990
+		mask = np.where(freq_arr>rmfreq)
+		mask_complement = np.setdiff1d(range(len(freq_arr)), mask) #If input frequency is less than the rest mass frequency, probability is zero (nonphysical)
+		v_store = v.copy()
 
+		v_store[mask] = (2*h*(c**2)*np.sqrt(beta/np.pi))/(RME*v_lab_mag) * np.exp(-beta*(v_lab_mag**2+v[mask]**2)) * np.sinh(2*beta*v_lab_mag*v[mask])
+		v_store[mask_complement] = 0 #If input frequency is less than the rest mass frequency, probability is zero (nonphysical)
+		return v_store
 
-		if rmfreq<freq:
-			X = (2*h*(c**2)*np.sqrt(beta/np.pi))/(RME*v_lab)
-			Y = np.exp(-beta*(v_lab**2+v**2))
-			Z = np.sinh(2*beta*v_lab*v)
-			dist = X*Y*Z
-		else: #If input frequency is less than the rest mass frequency, probability is zero (nonphysical)
-			dist = 0
-
-		return dist
-
-	def axionDM_w_baryons(self,mod_vel, v_sol, mass, freq):
+	def axionDM_w_baryons(self, mod_vel, v_sol, mass, freq):
 
 		"""
 		Description: Function gives probability density for axion signal of Lentz et al. 2017
 		Parameters: mod_vel (km/s) is the variation of the experiments velocity from the mean solar velocity w.r.t a right-handed galactic coordinate system centered on the galactic center. v_sol (km/s) is the mean solar velocity. mass (eV) is the mass of the axion. freq (MHz) is a desired sample point.
 		Output: Probability to find an axion with given input frequency.
+		"""
+		
+		#NO need for the following. velocities are now vectored quantities
 		"""
 		# Isolate the tangential velocity
 		if type(mod_vel)==type(0.0):
@@ -130,7 +133,7 @@ class signal(object):
 			v_m = mod_vel[1]
 		else:
 			return "Error: Modulation velocity format not recognized"
-
+		"""
 
 		f = freq*10**6 #Hz
 		c = Cnsts.c.value*10**(-3) #Km/s
@@ -147,7 +150,7 @@ class signal(object):
 		T = 4.7*10**(-7)
 		gamma = sp.special.gamma((1+alpha)/beta)
 
-		Boost = 1-(mod_vel)*(v_sol)/(v_sol**2) #Modulating parameter to account for diurnal variations
+		Boost = 1-sum((mod_vel)*(v_sol))/((v_sol**2).sum()) #Modulating parameter to account for diurnal variations
 
 
 

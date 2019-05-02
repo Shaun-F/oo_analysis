@@ -53,8 +53,7 @@ class analyser(object):
 		#meta analysis
 		submeta={"timeit":self.meta_analysis[0]}
 		if self.meta_analysis[0]:
-			meta_stats = ["constants", "axion_power", "modulation", "BS", "consolidation", "cavity_lorentz", "bin_stats", 
-							"convolutions", "axion_rmfs", "max_likelihood_arith", "max_likelihood", "sig_sens", 'reflecting_time', 
+			meta_stats = ["constants", "axion_power", "modulation", "BS", "consolidation", "cavity_lorentz", "bin_stats", "axion_rmfs", "sig_sens", 'reflecting_time', 
 							'calculating_tophat_size', 'reciprocating_array', 'generating_large_array', 'generating_tophat', 'fft_and_highpassfilter', 'ifft', 
 							'picking_og_signal', 'dividing_structure', 'consolidation_time', 'class_init_time', 'optimal_weight_sum_consolidation_time', 
 							'model_excess_sqrd_consolidation_time', 'nscan_consolidation_time', 'SNR_consolidation_time', 'power_deviation_consolidation_time', 
@@ -64,6 +63,7 @@ class analyser(object):
 							'attaching_new_scan_to_class','calculating_indices','close_out']
 			submeta = {key: [] for key in meta_stats}
 			submeta['timeit'] = self.meta_analysis[0]
+		
 		iteration_start = time.time()
 		analysis_timer = []
 		coaddition_timer = []
@@ -134,6 +134,7 @@ class analyser(object):
 			except (KeyError, MemoryError, IndexError) as error:
 				print("Error at scan {0}. Saving to error log".format(key))
 				open('../meta/error_log', 'a+').write(str(time.time())+ "\n\n"+ str(error))
+				self.file.close()
 				raise
 		iteration_stop = time.time()
 		

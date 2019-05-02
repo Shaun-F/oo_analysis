@@ -160,7 +160,7 @@ def reciprocated_clone_hpf(data, npairs, testing=False, scan_number='(Unknown)',
 	
 	if testing == True:
 		from toolbox.plot_dataset import plotter
-		sdir = "C:/Users/drums/Documents/Coding Software/Python/Scripts/New-Analysis-Scheme/oo_analysis/figures/"+ '('+scan_number+')'
+		sdir = "D:/Users/shaun/Documents/Coding Software/Python/Scripts/New-Analysis-Scheme/oo_analysis/figures/"+ '('+scan_number+')_'
 		format = '.pdf'
 		print("Plotting data")
 		plotter(data,savedir = sdir+'data'+format); 

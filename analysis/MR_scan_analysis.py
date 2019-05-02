@@ -21,23 +21,6 @@ from toolbox.lorentzian import lorentzian
 import time
 
 
-
-def convolve_two_arrays(array1, array2):
-	"""Convolution based off the convolution theorem"""
-	if len(array1)<len(array2):
-		diff = len(array2)-len(array1)
-		array1 = numpy.pad(array1, (int(numpy.floor(diff/2)), int(numpy.ceil(diff/2))), 'constant', constant_values=0)
-	elif len(array2)<len(array1):
-		diff = len(array1)-len(array2)
-		array2 = numpy.pad(array2, (int(numpy.floor(diff/2)), int(numpy.ceil(diff/2))), 'constant', constant_values=0)
-		
-	array1_fft = DFT(array1)
-	array2_fft = DFT(array2)
-
-	return numpy.real(IDFT(array1_fft*array2_fft))
-
-	
-	
 def MR_scan_analysis(scan, **params):
 	"""
 	Single scan analysis procedure.
@@ -101,8 +84,7 @@ def MR_scan_analysis(scan, **params):
 		modulation_stop = time.time()
 		
 		axblank = numpy.empty_like(signal_shape)
-		DFSZshape = [i*dfszaxion for i in signal_shape]
-
+		DFSZshape = signal_shape*dfszaxion
 		#Remove Receiver response from scan
 		BS_start = time.time()
 		try:
@@ -121,7 +103,7 @@ def MR_scan_analysis(scan, **params):
 		
 		consolidation_start = time.time()
 		filtered_data_mean = numpy.mean(filtered_data)
-		deltas = (filtered_data - filtered_data_mean)
+		deltas = np.asarray((filtered_data - filtered_data_mean))
 		digitizer_scan = bin_consolidator(digitizer_scan, res)
 		consolidation_stop = time.time()
 		
@@ -141,26 +123,24 @@ def MR_scan_analysis(scan, **params):
 		sigma = numpy.std(deltas)
 		sigma_w = BkT*sigma
 		power_deltas = BkT*deltas
-		trans_power_deltas = cav_trans_mod*power_deltas
-		variance_w = sigma_w**2
 		nscans = lorentzian_profile
-		noise_power = sigma_w
 		SNR = (axion_power_excess_watts/sigma_w)*(binwidth*int_time)**(1/2)
 		bin_stats_stop = time.time()
 		
+		
+		chi_squared_results = chi_squared(power_deltas, DFSZshape, lorentzian_profile, sigma_w, cc=0.5)
+		
+		sensitivity_power = chi_squared_results['power_sensitivity']
+		sensitivity_coupling = chi_squared_results['coupling_sensitivity']
+		maximum_likelihood = chi_squared_results['maximum_likelihood']
+		axion_fit_significance = chi_squared_results['axion_fit_significance']
+		axion_fit_uncertainty = chi_squared_results['axion_fit_uncertainty']
+		optimal_weight_sum = chi_squared_results['chi_squared_term_two']
+		model_excess_sqrd = chi_squared_results['chi_squared_term_three']
 		#Fit to axion signal
 
 		#perform convolution based on convolution theorem
-		
-		convolutions_start = time.time()
-		trans_power_deltas_fft = DFT(trans_power_deltas)
-		DFSZshape_fft = DFT(DFSZshape)
-		dfszpow = dfszaxion
-		trans_power_deltas = numpy.pad(trans_power_deltas, len(axblank), 'constant', constant_values = 0)
-		signal_data_convolution = convolve_two_arrays(trans_power_deltas, DFSZshape) 
-		convolution_length = len(signal_data_convolution)
-		convolutions_stop = time.time()
-		
+
 		
 		axion_rmfs_start = time.time()
 		axion_rmfs = []
@@ -168,54 +148,8 @@ def MR_scan_analysis(scan, **params):
 		for i in numpy.arange(scan_length+2*n_signal_width)-1:
 			axion_rmfs.append(axion_RMF + binwidth*(i-middlefreqpos-n_signal_width))
 		axion_rmfs_stop = time.time()
-
-		
-		#find maximum likelihood
-
-		max_likelihood_arith_start = time.time()
-		conv_Aml_num = signal_data_convolution
-		Aml_num = signal_data_convolution*(1/(2*sigma_w**2))
-		lorentz_squared = cav_trans_mod**2
-		model_squared = [i**2 for i in DFSZshape] #DFSZshape**2
-		lorentz_squared = numpy.pad(lorentz_squared, len(axblank), 'constant', constant_values=0)
-		conv_Aml_den = convolve_two_arrays(lorentz_squared, model_squared)
-		Aml_den = conv_Aml_den*(1/(2*sigma_w**2))
-		model_excess_sqrd = Aml_den
-		optimal_weight_sum = Aml_num
-		max_likelihood_arith_stop = time.time()
-		#compute most likely axion power
-		max_likelihood_start = time.time()
-		maximum_likelihood = Aml_num/Aml_den
-		#Compute chi squared for maximum_likelihood sigma by explicit calculation
-		A = maximum_likelihood
-		array1 = [1]*len(A)
-		A_factor = (2*A + 1)
-		data_model_coeff = 2*Aml_num
-
-		chi_sqrd_diff_one = array1*data_model_coeff
-		chi_sqrd_diff_two = A_factor*Aml_den
-
-		data_squared = power_deltas**2
-		first_two_terms = A**2*Aml_den-2*A*Aml_num
-
-		chi_squared_diff = chi_sqrd_diff_two - chi_sqrd_diff_one
-		chi_squared_diff_red = chi_squared_diff/numpy.sqrt(len(data)-1)
-
-		sigma_A = []
-		for i in numpy.arange(len(chi_squared_diff_red)):
-			sigma_A.append(numpy.sqrt(2*chi_squared_diff[i])**(-1))
-		max_likelihood_stop = time.time()
 		
 		sig_sens_start = time.time()
-		#Fit significance
-		axion_fit_significance = A/sigma_A
-
-		
-		#Sensitivity is calculated using significance of fit to axion of known power
-		cl_coeff = 1.64485 #how many sigmas does 90% of data fall within
-		sensitivity_power = [i*cl_coeff for i in sigma_A] #sigma_A*cl_coeff
-		sensitivity_coupling = [numpy.sqrt(i) for i in sensitivity_power] #np.sqrt(sensitivity_power)
-
 
 		#consolidate statisitics
 		nscans = numpy.pad(nscans, len(axblank), 'constant', constant_values = 0)
@@ -223,9 +157,13 @@ def MR_scan_analysis(scan, **params):
 		SNR = numpy.pad(SNR, len(axblank), 'constant', constant_values = numpy.inf)
 		#power_deviation = numpy.pad(power_deltas, len(axblank), 'constant', constant_values = 0) #weighted_deltas
 		sig_sens_stop = time.time()
+		
+		#print("\n\n", power_deltas) #these look good. Delete after debugging.
+		
+		
 	except (KeyError, ValueError, IndexError) as error:
-		print("\n\nError with scan {0}".format(scan_number))
-		open('../../meta/error_log', 'a+').write(str(time.time())+ "\n\n"+ str(error))
+		print("\n\nError with scan {0} in single scan analysis script.".format(scan_number))
+		open('../meta/error_log', 'a+').write(str(time.time())+ "\n\n"+ str(error))
 		raise
 		
 		
@@ -238,10 +176,7 @@ def MR_scan_analysis(scan, **params):
 		submeta['consolidation'].append(consolidation_stop - consolidation_start)
 		submeta['cavity_lorentz'].append(cavity_lorentz_stop - cavity_lorentz_start)
 		submeta['bin_stats'].append(bin_stats_stop - bin_stats_start)
-		submeta['convolutions'].append(convolutions_stop - convolutions_start)
 		submeta['axion_rmfs'].append(axion_rmfs_stop - axion_rmfs_start)
-		submeta['max_likelihood_arith'].append(max_likelihood_arith_stop - max_likelihood_arith_start)
-		submeta['max_likelihood'].append(max_likelihood_stop - max_likelihood_start)
 		submeta['sig_sens'].append(sig_sens_stop - sig_sens_start)
 	
 	
@@ -251,10 +186,10 @@ def MR_scan_analysis(scan, **params):
 				'sigma_w':sigma_w,
 				'optimal_weight_sum': optimal_weight_sum, #maximum likelihood numerator
 				'SNR':SNR,
-				'noise_power':noise_power,
+				'noise_power':sigma_w,
 				'model_excess_sqrd':model_excess_sqrd, #maximum likelihood denominator
-				'axion_fit':A,
-				'axion_fit_uncertainty':sigma_A,
+				'axion_fit':maximum_likelihood,
+				'axion_fit_uncertainty':axion_fit_uncertainty,
 				'axion_fit_significance':axion_fit_significance,
 				'sensitivity_power':sensitivity_power,
 				'sensitivity_coupling':sensitivity_coupling,
@@ -266,10 +201,82 @@ def MR_scan_analysis(scan, **params):
 				}
 	return results
 
-        
+def convolve_two_arrays(array1, array2):
+	"""Convolution based off the convolution theorem"""
+	if len(array1)<len(array2):
+		diff = len(array2)-len(array1)
+		array1 = numpy.pad(array1, (int(numpy.floor(diff/2)), int(numpy.ceil(diff/2))), 'constant', constant_values=0)
+	elif len(array2)<len(array1):
+		diff = len(array1)-len(array2)
+		array2 = numpy.pad(array2, (int(numpy.floor(diff/2)), int(numpy.ceil(diff/2))), 'constant', constant_values=0)
+		
+	array1_fft = DFT(array1)
+	array2_fft = DFT(array2)
+
+	return numpy.asarray(numpy.real(IDFT(array1_fft*array2_fft)))
+
+def chi_squared(power_deltas, axion_signal, cavity_lorentzian, noise_power, convolve=True, **kwargs):
+	"""
+	Chi squared as calculated in Improving Axion Signal Models Through N-Body 
+	Simulations by Erik Lentz 2017. Specifically, section 5.5. Each term corresponds to the terms of equation 5.23 in thesis.
+	"""
     
-    
-    
-    
-    
+	if 'cc' not in kwargs:
+		cc=0.5  #coupling of photons to cavity
+	else:
+		cc = kwargs['cc']
+	if 'cl_coeff' not in kwargs:
+		cl_coeff = 1.64485 #how many sigmas does 90% of data fall within
+	else:
+		cl_coef = kwargs['cl_coeff']
+	
+	
+	
+	
+	cavity_transmission = cc*cavity_lorentzian #tranmission function for cavity
+	transmitted_power_deltas = numpy.pad(cavity_transmission*power_deltas, len(axion_signal), 'constant', constant_values = 0) #power deltas are dimensionless deltas times Bandwidth*kT
+	cavity_transmission = numpy.pad(cavity_transmission, len(axion_signal), 'constant', constant_values=0)
+	
+	chi_squared_term_one = (1/2)*numpy.sum(power_deltas**2/noise_power)
+	chi_squared_term_two = convolve_two_arrays(transmitted_power_deltas, axion_signal)/(2*noise_power**2)
+	chi_squared_term_three = convolve_two_arrays(cavity_transmission**2, axion_signal**2)/(2*noise_power**2)
+	
+	maximum_likelihood = chi_squared_term_two/chi_squared_term_three #equ 5.26 in Lentz Thesis
+	
+	chi_squared_small_difference = chi_squared_term_three*(2*maximum_likelihood+1) - 2*chi_squared_term_two #equation 5.28 in Lentz Thesis
+	maximum_likelihood_dispersion = 1/numpy.sqrt(2*chi_squared_small_difference) #equ 5.27 in Lentz Thesis
+	
+	axion_fit_significance = maximum_likelihood/maximum_likelihood_dispersion #equ 5.34 in Lentz Thesis
+	
+	#Sensitivity is calculated using significance of fit to axion of known power
+	power_sensitivity = maximum_likelihood_dispersion*cl_coeff
+	coupling_sensitivity = numpy.sqrt(power_sensitivity)
+	
+	
+	results = {'chi_squared_term_one': chi_squared_term_one,
+				'chi_squared_term_two': chi_squared_term_two,
+				'chi_squared_term_three': chi_squared_term_three,
+				'maximum_likelihood': maximum_likelihood,
+				'axion_fit_significance': axion_fit_significance,
+				'power_sensitivity': power_sensitivity,
+				'coupling_sensitivity': coupling_sensitivity,
+				'axion_fit_uncertainty': maximum_likelihood_dispersion
+				}
+	
+	return results
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
     

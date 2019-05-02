@@ -6,6 +6,7 @@ Creation Date: 6/1/18
 """
 import numpy as np
 from astropy import constants as Cnsts
+from astropy import units as U
 from datetime import datetime as dt
 from dateutil.parser import parse
 import pytz
@@ -46,7 +47,7 @@ class modulation():
 		#define secondary values and attach to class
 		secondary={}
 		for key in self.__dict__.keys():
-			if key not in default_keys:
+			if key not in default_keys and key!='mod_vels':
 				secondary[key] = getattr(self, key)
 				
 		signals = {}
@@ -54,7 +55,7 @@ class modulation():
 		for key in self.keys:
 			start = time.time()
 			timestamp = timestamps[key]
-			signals[key] = self.modulatedsignal(modulation_type, timestamp, shape_model, axion_mass, self.mod_vels[timestamp], **secondary)
+			signals[key] = self.modulatedsignal(modulation_type, timestamp, shape_model, axion_mass[key], self.mod_vels[timestamp], **secondary)
 			stop = time.time()
 			timer.append(stop-start)
 		
@@ -100,7 +101,7 @@ class modulation():
 		else:
 			return "Error: modulation type not recognized"
 
-	def modulatedsignal(self, modulation_type, timestamp, shape_model, axion_mass, modulated_velocity, **kwargs):
+	def modulatedsignal(self, modulation_type, timestamp, shape_model, axion_mass, vel_mod, **kwargs):
 		"""
 		Description:Function bins a given velocity-modulated axion shape by integration.
 
@@ -110,7 +111,6 @@ class modulation():
 
 		Output: velocity-modulated signal shape over frequency or time.
 		"""
-
 		# Set default values for signals not being used
 		if 'resolution' not in kwargs.keys():
 			resolution = 100
@@ -136,13 +136,9 @@ class modulation():
 			vel_mod = kwargs['mod_vels']
 
 		#modulation velocity
-		#mod_vel_start = time.time()
 		#specify parameters to be used in various signal scripts
-		modtype = modulation_type #create pointer with shorter character length
 		vsol = tf_lib.transformer().solar_vel_GalacticFrame() # (km/s) mean solar speed around galaxy
-		vel_mod = float(modulated_velocity) #variation of experimental apparatus speed around sun w.r.t. galactic center
-		#mod_vel_stop = time.time()
-		h = Cnsts.h.value*6.242*10**18 # plancks constant in eV*s
+		h = Cnsts.h.to(U.eV*U.s).value # plancks constant in eV*s
 		m = axion_mass # axion mass in eV
 		bin_width = float(resolution) #size of bins in hZ
 		RMF = float(m/h) # Rest mass frequency in hZ
@@ -159,7 +155,7 @@ class modulation():
 		binned_signal = []
 		sumbins = 0
 
-		startingfreqs = []
+		startingfreqs = [startfreq]
 		info = []
 		i=0
 
@@ -172,7 +168,7 @@ class modulation():
 				if ((i+1)/3) == np.floor((i+1)/3) and i>0:
 					binned_signal.append(binsize[int(i-2)] + binsize[int(i-1)] + binsize[int(i)])
 					sumbins = sumbins + binned_signal[int(i/3)]
-					startingfreqs.append(scanfreq-bin_width)
+					startingfreqs.append(scanfreq*10**(6)-bin_width)
 				i+=1
 				if len(binned_signal)>500:
 					break
@@ -180,17 +176,16 @@ class modulation():
 		elif shape_model == "SHM":
 			while sumbins<cutoffarea:
 				scanfreq = float(startfreq+(i)*(bin_width/3))*10**(-6)
-				binsize.append(signal_cl.SHM(scanfreq, m, vel_mod)*(bin_width/3))
+				binsize.append((signal_cl.SHM(scanfreq, m, vel_mod)*(bin_width/3))[0])
 
 				if ((i+1)/3) == np.floor((i+1)/3) and i>0:
 					binned_signal.append(binsize[int(i-2)] + binsize[int(i-1)] + binsize[int(i)])
 					sumbins = sumbins + binned_signal[int(i/3)]
-					startingfreqs.append(scanfreq-bin_width)
+					startingfreqs.append(scanfreq*10**(6)-bin_width)
 
 				i+=1
 				if len(binned_signal)>500:
 					break
-
 		elif shape_model == "pCDM_only":
 			modf = float(((vsol+vel_mod)**2)/(vsol**2))
 			while sumbins<cutoffarea:
@@ -201,7 +196,7 @@ class modulation():
 				if ((i+1)/3) == np.floor((i+1)/3) and i>0:
 					binned_signal.append(binsize[int(i-2)] + binsize[int(i-1)] + binsize[int(i)])
 					sumbins = sumbins + binned_signal[int(i/3)]
-					startingfreqs.append(scanfreq-bin_width)
+					startingfreqs.append(scanfreq*10**(6)-bin_width)
 				i += 1
 				if len(binned_signal)>500:
 					break
@@ -215,7 +210,7 @@ class modulation():
 				if ((i+1)/3) == np.floor((i+1)/3) and i>0:
 					binned_signal.append(binsize[int(i-2)] + binsize[int(i-1)] + binsize[int(i)])
 					sumbins = sumbins + binned_signal[int(i/3)]
-					startingfreqs.append(scanfreq-bin_width)
+					startingfreqs.append(scanfreq*10**(6)-bin_width)
 				i += 1
 				if len(binned_signal)>500:
 					break
@@ -230,7 +225,7 @@ class modulation():
 				if ((i+1)/3) == np.floor((i+1)/3) and i>0:
 					binned_signal.append(binsize[int(i-2)] + binsize[int(i-1)] + binsize[int(i)])
 					sumbins = sumbins + binned_signal[int(i/3)]
-					startingfreqs.append(scanfreq-bin_width)
+					startingfreqs.append(scanfreq*10**(6)-bin_width)
 				i += 1
 				if len(binned_signal)>500:
 					break
@@ -245,16 +240,15 @@ class modulation():
 				if ((i+1)/3) == np.floor((i+1)/3) and i>0:
 					binned_signal.append(binsize[int(i-2)] + binsize[int(i-1)] + binsize[int(i)])
 					sumbins = sumbins + binned_signal[int(i/3)]
-					startingfreqs.append(scanfreq-bin_width)
+					startingfreqs.append(scanfreq*10**(6)-bin_width)
 				i += 1
 				if len(binned_signal)>500:
 					break
+		else:
+			return "Error: Axion shape model not recognized" #Error message if shape model has not yet been defined or doesnt even exist
+
 		integrate_signal_stop = time.time()
 		
-		#Error message if shape model has not yet been defined or doesnt even exist
-		if shape_model != "axionDM_only" and shape_model != "pCDM_maxwell_like_form" and shape_model != "pCDM_w_baryons" and shape_model != "pCDM_only" and shape_model != "SHM" and shape_model != "axionDM_w_baryons":
-			return "Error: Axion shape model not recognized"
-
 		#if wantTseries == 'y', then fourier transform the signal into a time series. if not, leave it alone
 		if wantTseries == "y":
 			finalsignal = np.fft.fft(binned_signal)
@@ -262,7 +256,7 @@ class modulation():
 			finalsignal = binned_signal
 
 		#collect important properties and values
-		info = {'rest mass frequency':RMF, 'shape': shape_model, 'signal': finalsignal, 'freqs':startingfreqs}
+		info = {'rest mass frequency':RMF, 'shape': shape_model, 'signal': np.asarray(finalsignal), 'freqs':np.asarray(startingfreqs)}
 
 		#self.sig_mod_list.append(mod_vel_stop - mod_vel_start)
 		self.sig_integ8_list.append(integrate_signal_stop-integrate_signal_start)
