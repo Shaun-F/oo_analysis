@@ -28,7 +28,7 @@ def plotter(scan_number_or_array, savedir = None, **kwargs):
 				m=min(data)*0.75
 			plt.ylim(m, max(data)*1.5)
 			plt.title("Scan number {0}".format(scan_number))
-			plt.xlabel("frequency (hz)")
+			plt.xlabel("frequency (MHz)")
 			plt.ylabel("power (normed)")
 			
 			for arg,val in kwargs.items():

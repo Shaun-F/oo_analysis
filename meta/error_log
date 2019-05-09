@@ -122,4 +122,10 @@ operands could not be broadcast together with shapes (284,) (256,) 1556838091.54
 
 EOL while scanning string literal (MR_scan_analysis.py, line 236)1556838107.9943492
 
-operands could not be broadcast together with shapes (284,) (256,) 
+operands could not be broadcast together with shapes (284,) (256,) 1557089356.077277
+
+unexpected indent (MR_scan_analysis.py, line 203)1557096400.0270288
+
+too many arguments: expected 4, got 51557341199.8105106
+
+invalid syntax (MR_scan_analysis.py, line 157)

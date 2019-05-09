@@ -4,13 +4,16 @@ Script plots the figures of merit for the analysis
 import h5py
 import matplotlib.pyplot as plt
 import numpy as np
+import os, sys
 
 
 
 class figures_class():
 	
-	def __init__(self, savedir, **kwargs):
+	def __init__(self, savedir='here', **kwargs):
 		
+		if savedir == 'here':
+			savedir = os.path.abspath(os.path.dirname(sys.argv[0]))
 		#set values common to all plots
 		self.file = h5py.File(b'../data/raw/run1a_data.hdf5', 'r')
 		self.grand_spectra_group = self.file['grand_spectra_run1a']
@@ -39,7 +42,7 @@ class figures_class():
 		domain = self.axion_frequencies[mask]
 		plt.title("Coupling sensitivity of run1a")
 		plt.xlabel("Axion Frequencies (Hz)")
-		plt.ylabel(r"Coupling Sensitivity (GeV^{-1}")
+		plt.ylabel(r"Coupling Sensitivity")
 		
 		
 		#plot
@@ -59,7 +62,7 @@ class figures_class():
 		domain = self.axion_frequencies[mask]
 		plt.title("power sensitivity of run1a")
 		plt.xlabel("Axion Frequencies (Hz)")
-		plt.ylabel(r"Power Sensitivity (GeV^{-2}")
+		plt.ylabel(r"Power Sensitivity")
 		
 		
 		#plot
@@ -112,8 +115,28 @@ class figures_class():
 		"""
 		Plot the frequency scanned over time
 		"""
-		data = self.grand_spectra_group
-	
+		import datetime as dt
+		mode_freq = []
+		times = []
+		for i in self.digitizer_group:
+			if 'alog_timestamp' in self.digitizer_group[i].attrs and not self.digitizer_group[i].attrs['cut']: #restrict to scans that have an associated axion scan log
+					mode_freq.append(self.digitizer_group[i].attrs['mode_frequency'])
+					times.append(self.digitizer_group[i].attrs['timestamp'])
+
+		times = list(map(lambda x: dt.datetime.strptime(x, "%d-%m-%Y %H:%M:%S"), times)) #set all timestamp strings to datetime objects
+		
+		fig, ax = plt.subplots()
+		ax.scatter(times, mode_freq, s=2)
+		
+		
+		#set ticks
+		plt.locator_params(axis='x', nbins=8)
+		plt.xticks(rotation=25)
+		
+		plt.savefig(self.savefile + "time_v_freq" + self.extension, dpi = self.dpi)
+		
+		if 'show' in list(kwargs.keys()) and kwargs['show']:
+			plt.show()
 	
 	def candidates(self, **kwargs):
 		"""
@@ -161,13 +184,25 @@ class figures_class():
 		"""
 		Plot the number of scans per frequency   ### NOTE: Use logarithmic y-axis
 		"""
+		import matplotlib.image as img
+		image = img.imread('scan_rate.png')
+		plt.imshow(image)
+		plt.axis('off')
+		if 'show' in list(kwargs.keys()) and kwargs['show']:
+			plt.show()
 	
 	
 	def deltas(self, **kwargs):
 		"""
 		Plot the deltas as histogram. Measures gaussianity of data. ### stack all deltas on top of one another and measure dispersion that way + distribution.
 		"""
-		deltas = self.grand_spectra_group['power_deviation']
+		deltas = self.grand_spectra_group['power_deviation'][...]
+		plt.hist(deltas, bins=400)
+		
+		plt.savefig(self.savefile + 'Run1a_deltas' + self.extension, dpi = self.dpi)
+		
+		if 'show' in list(kwargs.keys()) and kwargs['show']==True:
+			plt.show()
 		
 	
 	def injected_signals(self, **kwargs):
@@ -253,7 +288,7 @@ class figures_class():
 		plt.locator_params(axis='x', nbins=8)
 		plt.xticks(rotation=25)
 		
-		plt.savefig(self.savefile + "DM_sensitivity" + self.extension, dpi = self.dpi)
+		plt.savefig(self.savefile + "temp_v_time" + self.extension, dpi = self.dpi)
 		
 		if 'show' in list(kwargs.keys()) and kwargs['show']==True:
 			plt.show()

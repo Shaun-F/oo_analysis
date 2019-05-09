@@ -182,7 +182,7 @@ class scan_cl(object):
 				else:
 					csensitivity[i] = (1/val**4 - 1/ssensitivity[i]**4)**(-0.25)
 		"""
-		return inverse_root_quadrature(self, self.chunk['sensitivity_coupling'][inx_start:inx_end], self.scan['sensitivity_coupling'], self.op)
+		return inverse_root_quadrature(self, self.chunk['sensitivity_coupling'][inx_start:inx_end], self.scan['sensitivity_coupling'], self.op, -4)
 	
 	def maximum_likelihood_uncertainty_consolidation(self, inx_start, inx_end):
 		"""
@@ -197,7 +197,7 @@ class scan_cl(object):
 				else:
 					axion_fit_uncertainty[i] = (1/val**2 - 1/scan_axion_fit_uncertainty[i]**2)**(0.5)
 		"""
-		return quadrature(self, self.chunk['axion_fit_uncertainty'][inx_start:inx_end], self.scan['axion_fit_uncertainty'], self.op)
+		return inverse_quadrature(self, self.chunk['axion_fit_uncertainty'][inx_start:inx_end], self.scan['axion_fit_uncertainty'], self.op, -2)
 	
 	def model_excess_sqrd_consolidation(self, inx_start, inx_end):
 		"""
@@ -281,7 +281,7 @@ class scan_cl(object):
 				else:
 					sensitivity[i]=(1/val**2 - 1/ssensitivity[i]**2)**(-0.5)
 		"""
-		return inverse_quadrature(self, self.chunk['sensitivity_power'][inx_start:inx_end], self.scan['sensitivity_power'], self.op)
+		return inverse_quadrature(self, self.chunk['sensitivity_power'][inx_start:inx_end], self.scan['sensitivity_power'], self.op, -2)
 		
 	def sigma_A_consolidation(self, inx_start, inx_end):
 		"""
@@ -296,7 +296,7 @@ class scan_cl(object):
 				else:
 					sigma_A[i] = (np.abs(1/(val**2) - 1/(ssigma_A[i]**2)))**(1/2)
 		"""
-		return quadrature(self, self.chunk['axion_fit_uncertainty'][inx_start:inx_end], self.scan['axion_fit_uncertainty'], self.op)
+		return inverse_quadrature(self, self.chunk['axion_fit_uncertainty'][inx_start:inx_end], self.scan['axion_fit_uncertainty'], self.op, -2)
 	
 	def SNR_consolidation(self, inx_start, inx_end):
 		"""
@@ -310,7 +310,8 @@ class scan_cl(object):
 					cSNR[i] = (val**2 - sSNR[i]**2)**(1/2)
 		"""
 		try:
-			return quadrature(self, self.chunk['SNR'][inx_start:inx_end], self.scan['SNR'], self.op)
+			return quadrature(self, self.chunk['SNR'][inx_start:inx_end], self.scan['SNR'], self.op, 2)
+		
 		except IndexError:
 			print(self.scan_scan_number)
 			print(len(self.scan['SNR']))
@@ -576,41 +577,41 @@ def divider(self, a1, a2):
 		else:
 			afit[i]=a1[i]/a2[i]
 	return afit
-
-@jit
-def inverse_root_quadrature(self, a1, a2, op):
-	for i in range(len(a1)):
-		if self.op=="+":
-			a1[i] = (1/(a1[i]**4) + 1/(a2[i]**4))**(-1/4)
-		else:
-			if (1/a1[i])<(1/a2[i]):
-				a1[i]==0
-			else:
-				a1[i] = (1/(a1[i]**4) - 1/(a2[i]**4))**(-1/4)
-	return a1
 	
 @jit
-def quadrature(self, a1, a2, op):
+def quadrature(self, a1, a2, op, pow):
 	for i in range(len(a1)):
 		if self.op=="+":
-			a1[i] = (1/(a1[i]**4) + 1/(a2[i]**4))**(1/2)
+			a1[i] = ((a1[i]**pow) + (a2[i]**pow))**(1/2)
 		else:
 			if (1/a1[i])<(1/a2[i]):
 				a1[i]==0
 			else:
-				a1[i] = (1/(a1[i]**4) - 1/(a2[i]**4))**(1/2)
+				a1[i] = ((a1[i]**pow) - (a2[i]**pow))**(1/2)
 	return a1
 
 @jit
-def inverse_quadrature(self, a1, a2, op):
+def inverse_quadrature(self, a1, a2, op, pow):
 	for i in range(len(a1)):
 		if self.op=="+":
-			a1[i] = (1/(a1[i]**4) + 1/(a2[i]**4))**(-1/2)
+			a1[i] = ((a1[i]**pow) + (a2[i]**pow))**(-1/2)
 		else:
 			if (1/a1[i])<(1/a2[i]):
 				a1[i]==0
 			else:
-				a1[i] = (1/(a1[i]**4) - 1/(a2[i]**4))**(-1/2)
+				a1[i] = ((a1[i]**pow) - (a2[i]**pow))**(-1/2)
+	return a1
+
+@jit
+def inverse_root_quadrature(self, a1, a2, op, pow):
+	for i in range(len(a1)):
+		if self.op=="+":
+			a1[i] = ((a1[i]**pow) + (a2[i]**pow))**(-1/4)
+		else:
+			if (1/a1[i])<(1/a2[i]):
+				a1[i]==0
+			else:
+				a1[i] = ((a1[i]**pow) - (a2[i]**pow))**(-1/4)
 	return a1
 
 @jit

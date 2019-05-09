@@ -7,20 +7,18 @@ Creation Date: 10/26/18
 import h5py
 import pickle #used for serializing and de-serializing data.
 
-def write_out(dataset,path):
+def write_out(datagroup,path):
 	"""
-	Function takes in a dataset, a file path and writes both the data and attributes to the file via serialization
+	Function takes in a dataset, a file path and writes the data to the file via serialization
 	"""
 	#data = h5py.File(path, 'w')
 	# use write functioins to put grand spectra to file
-	attributes = {key: dataset.attrs[key] for key in dataset.attrs}
-
-	output_file = open(path, 'wb')
-	for key in dataset.attrs:
-		pickle.dump(dataset[key][...], output_file)
-	pickle.dump(attributes, output_file)
-
-	output_file.close()
+	
+	datasets = {key: datagroup[key][...] for key in datagroup} #form dictionary of data to save to disk.
+	output_file = open(path, 'wb') #file object for pickle to save to
+	pickle.dump(datasets, output_file) #save dictionary to file object
+	output_file.close() #close out file object
+	
 	return None
 	
 def read_file(file):

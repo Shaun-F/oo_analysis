@@ -142,7 +142,7 @@ class modulation():
 		m = axion_mass # axion mass in eV
 		bin_width = float(resolution) #size of bins in hZ
 		RMF = float(m/h) # Rest mass frequency in hZ
-		cutoffarea = 0.95
+		cutoffarea = 0.99
 		
 
 		signal_cl = signal(self.__dict__)

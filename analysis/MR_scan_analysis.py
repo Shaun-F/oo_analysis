@@ -121,10 +121,10 @@ def MR_scan_analysis(scan, **params):
 		#Genereate bin-wise scan stats assuming all power in single bin
 		bin_stats_start = time.time()
 		sigma = numpy.std(deltas)
-		sigma_w = BkT*sigma
+		sigma_w = BkT*(binwidth*int_time)**(-1/2)
 		power_deltas = BkT*deltas
 		nscans = lorentzian_profile
-		SNR = (axion_power_excess_watts/sigma_w)*(binwidth*int_time)**(1/2)
+		SNR = (axion_power_excess_watts/sigma_w)
 		bin_stats_stop = time.time()
 		
 		
@@ -154,7 +154,7 @@ def MR_scan_analysis(scan, **params):
 		#consolidate statisitics
 		nscans = numpy.pad(nscans, len(axblank), 'constant', constant_values = 0)
 		#deltas = numpy.pad(deltas, len(axblank), 'constant', constant_values=0)
-		SNR = numpy.pad(SNR, len(axblank), 'constant', constant_values = numpy.inf)
+		SNR = numpy.pad(SNR, len(axblank), 'constant', constant_values = 0)
 		#power_deviation = numpy.pad(power_deltas, len(axblank), 'constant', constant_values = 0) #weighted_deltas
 		sig_sens_stop = time.time()
 		
@@ -199,6 +199,7 @@ def MR_scan_analysis(scan, **params):
 				'middle_frequency':middlefreq*10**6,
 				'axion_frequencies':axion_rmfs #in Hz
 				}
+				
 	return results
 
 def convolve_two_arrays(array1, array2):

@@ -11,7 +11,7 @@ def lorentzian(Q, resonant_frequency, nbins, resolution):
 		while len(freqs)>nbins:
 			freqs = np.delete(freqs, -1)
 			
-	l = lambda FWHM, center, f: (1/np.pi)*(0.5*Q)/((f-center)**2 + (0.5*Q)**2)
+	l = lambda FWHM, center, f: (1/np.pi)*(0.5*Q)**2/((f-center)**2 + (0.5*Q)**2)
 
 	return l(Q, resonant_frequency, freqs)
 	

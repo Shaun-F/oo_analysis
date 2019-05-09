@@ -21,6 +21,7 @@ P.add_argument('-t', '--timeit', action='store_true', default=False, help='Argum
 P.add_argument('-cgs', '--clear_grand_spectra', action='store_true', default=False, help="Argument specifies whether to delete the grand spectra and start from scratch. Default is False")
 P.add_argument('--start_scan', action='store', default = '', help="Argument specifies the starting scan number of the analysis. If not specified, starting number specified by job.param")
 P.add_argument('--end_scan', action='store', default = '', help="Argument specifies the ending scan number of the analysis. If not specified, ending number specified by job.param")
+P.add_argument('-p', '--make_plots', action='store', default=False, help="Argument specifies whether to generate plots or not after analysis is completed")
 
 args = P.parse_args()
 
@@ -28,6 +29,7 @@ timeit = args.timeit
 reset = args.clear_grand_spectra
 start_scan = args.start_scan
 end_scan = args.end_scan
+make_plots = args.make_plots
 #############
 
 # create main structure
@@ -130,6 +132,7 @@ class core_analysis():
 			self.grand_spectra_group, ncut = analysis.grand_spectra(self)
 			self.analysis_stop=time.time()
 			
+			
 			#import MCMC
 			# perform MCMC analysis
 			
@@ -153,18 +156,19 @@ class core_analysis():
 				os._exit(0)
 		finally:
 			#save analysis to disk and close out file
+			string=" \n Analysis of {0} scans took {1:0.3f} seconds. \n Of those scans, {2:d} were cut".format(len(self.keys),  self.analysis_stop-self.analysis_start, ncut)
+			print(string)
 			self.collect_bad_scans()
 			self.collect_meta_data()
 			self.output()
-			self.generate_plots()
+			#self.generate_plots()
 			self.h5py_file.close() #Close the file, saving the changes.
-			string=" \n Analysis of {0} scans took {1:0.3f} seconds. \n Of those scans, {2:d} were cut. \n\n Writing output to {3}".format(len(self.keys),  self.analysis_stop-self.analysis_start, ncut, self.output_file)
-			print(string)
 			return None
 			
 	def output(self):
 		# outputs data to local "./output/" directory
 		import data_management
+		print("\n\nWriting output to {0}".format(self.output_file))
 		data_management.write_out(self.grand_spectra_group,self.output_file)
 		return None
 		
@@ -260,16 +264,17 @@ class core_analysis():
 		from figures.plotter import figures_class
 		save_dir = "C:/users/drums/documents/coding software/python/scripts/New-Analysis-Scheme/oo_analysis/figures"
 		kwargs = {"Tsys": list(self.Tsys.values()), "timestamp":list(self.timestamp.values()), "mode_frequencies": list(self.mode_frequencies.values())}
-		"""
+		
 		fig_cl = figures_class(save_dir)
 		fig_cl.temp_v_freq(**kwargs)
 		fig_cl.temp_v_time(**kwargs)
+		fig_cl.deltas(**kwargs)
 		fig_cl.candidates()
 		fig_cl.sensitivity_DM()
 		fig_cl.sensitivity_power()
 		fig_cl.sensitivity_coupling()
 		fig_cl.SNR()
-		"""
+		
 		
 		
 if __name__ in '__main__':
@@ -285,7 +290,9 @@ if __name__ in '__main__':
 		params = {'start_scan': max(map(int,x.keys))+1, 'end_scan': x.end_scan}
 		x = core_analysis(**params)
 		x.execute(timeit)
-	
+	if make_plots:
+		x.generate_plots()
+		
 	total_analysis_stop = time.time()
 	print("\n\n Entire analysis over all {0} partitions took {1:0.3f} seconds".format(n, total_analysis_stop-total_analysis_start))
 	
