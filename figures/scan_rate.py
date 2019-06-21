@@ -12,7 +12,7 @@ dig = f['digitizer_log_run1a']
 
 freq_list = []
 n=0
-"""
+
 print("Beginning iterations")
 for key in dig:
 	start = float(dig[key].attrs['start_frequency'])
@@ -44,3 +44,4 @@ plt.ylabel("Number of times frequency scanned")
 plt.scatter(lines[:,0], lines[:,1], s=2)
 plt.show()
 plt.savefig('D:/Users/shaun/Documents/Coding Software/Python/Scripts/New-Analysis-Scheme/oo_analysis/figures/scan_rate.png', dpi = 1000)
+"""

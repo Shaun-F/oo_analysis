@@ -25,4 +25,6 @@ temp='alg1'
 stat_interp='chi2'
 parallel='GPU'
 
-#axion specific parameters
+#axion specific parameters for injection
+#Frequencies in MHz
+#axion_frequencies = []

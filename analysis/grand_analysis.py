@@ -53,7 +53,7 @@ class analyser(object):
 		#meta analysis
 		submeta={"timeit":self.meta_analysis[0]}
 		if self.meta_analysis[0]:
-			meta_stats = ["constants", "axion_power", "modulation", "BS", "consolidation", "cavity_lorentz", "bin_stats", "axion_rmfs", "sig_sens", 'reflecting_time', 
+			meta_stats = ["constants", "axion_power", "modulation", "BS", 'convolutions', "consolidation", "cavity_lorentz", "bin_stats", "axion_rmfs", "sig_sens", 'reflecting_time', 
 							'calculating_tophat_size', 'reciprocating_array', 'generating_large_array', 'generating_tophat', 'fft_and_highpassfilter', 'ifft', 
 							'picking_og_signal', 'dividing_structure', 'consolidation_time', 'class_init_time', 'optimal_weight_sum_consolidation_time', 
 							'model_excess_sqrd_consolidation_time', 'nscan_consolidation_time', 'SNR_consolidation_time', 'power_deviation_consolidation_time', 
@@ -152,9 +152,6 @@ class analyser(object):
 			avg_bin_stats = sum(submeta['bin_stats'])/len(submeta['bin_stats'])
 			avg_convolutions = sum(submeta['convolutions'])/len(submeta['convolutions'])
 			avg_axion_rmfs = sum(submeta['axion_rmfs'])/len(submeta['axion_rmfs'])
-			avg_max_likelihood_arith = sum(submeta['max_likelihood_arith'])/len(submeta['max_likelihood_arith'])
-			avg_max_likelihood = sum(submeta['max_likelihood'])/len(submeta['max_likelihood'])
-			avg_sig_sens = sum(submeta['sig_sens'])/len(submeta['sig_sens'])
 			
 						
 			avg_coaddition = avg(coaddition_timer)
@@ -194,9 +191,6 @@ class analyser(object):
 			total_bin_stats = sum(submeta['bin_stats'])
 			total_convolutions = sum(submeta['convolutions'])
 			total_axion_rmfs = sum(submeta['axion_rmfs'])
-			total_max_likelihood_arith = sum(submeta['max_likelihood_arith'])
-			total_max_likelihood = sum(submeta['max_likelihood'])
-			total_sig_sens = sum(submeta['sig_sens'])
 			
 			total_coaddition = sum(coaddition_timer)
 			total_consolidation_time = sum(submeta['consolidation_time'])
@@ -239,9 +233,6 @@ class analyser(object):
 			s7 = "average time to calculate single bin statistics in single scan analysis is {0:03f}".format(avg_bin_stats)
 			s8 = "average time to calculate convolutions in single scan analysis is {0:03f}".format(avg_convolutions)
 			s9 = "average time to calculate all axion frequencies in single scan analysis is {0:03f}".format(avg_axion_rmfs)
-			s10 = "average time to carry out maximum likelihood arithmetic (sums, multiplications) in single scan analysis is {0:03f}".format(avg_max_likelihood_arith)
-			s11 = "average time to calculate maximum likelihood in single scan analysis is {0:03f}".format(avg_max_likelihood)
-			s12 = "average time to calculate sensitivities and significances in single scan analysis is {0:03f}".format(avg_sig_sens)
 			
 			
 			s13 = "average time to add/subtract scan is {0:03f}".format(avg_coaddition)
@@ -280,9 +271,6 @@ class analyser(object):
 			s36 = "total time to calculate single bin statistics in single scan analysis is {0:03f}".format(total_bin_stats)
 			s37 = "total time to calculate convolutions in single scan analysis is {0:03f}".format(total_convolutions)
 			s38 = "total time to calculate all axion frequencies in single scan analysis is {0:03f}".format(total_axion_rmfs)
-			s39 = "total time to carry out maximum likelihood arithmetic (sums, multiplications) in single scan analysis is {0:03f}".format(total_max_likelihood_arith)
-			s40 = "total time to calculate maximum likelihood in single scan analysis is {0:03f}".format(total_max_likelihood)
-			s41 = "total time to calculate sensitivities and significances in single scan analysis is {0:03f}".format(total_sig_sens)
 			
 			
 			
@@ -312,7 +300,7 @@ class analyser(object):
 			o = 'total time to save grand spectra to file is {0:0.3f}'.format(total_close_out_time)
 			
 			
-			strings = [s0,s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11,s12,s13,s14,s15,s16,s17,s18,s19,s20,s21,s22,s23,s24,s25,s26,s27,s28,a,b,c,d,e,s29,s30,s31,s32,s33,s34,s35,s36,s37,s38,s39,s40,s41,s42,s43,s44,s45,s46,s47,s48
+			strings = [s0,s1,s2,s3,s4,s5,s6,s7,s8,s9,s13,s14,s15,s16,s17,s18,s19,s20,s21,s22,s23,s24,s25,s26,s27,s28,a,b,c,d,e,s29,s30,s31,s32,s33,s34,s35,s36,s37,s38,s42,s43,s44,s45,s46,s47,s48
 			,s49,s50,s51,s52,s53,s54,s55,s56,s57, a,b,c,d,e,f,g,h,i,j,k,l,m,n,o]
 			for i in strings:
 				self.meta_analysis.append(i)

@@ -73,7 +73,9 @@ class core_analysis():
 			print("Note: Dataset was partitioned")
 		if reset and 'grand_spectra_run1a' in self.h5py_file.keys():
 			del self.h5py_file['grand_spectra_run1a']	
-        # derive necessary experiment data structures (put into dig_dataset)
+        
+		
+		# derive necessary experiment data structures (put into dig_dataset)
 		#Populate parameter dict's with dataset attributes.
 		self.Tsys = {key: self.dig_dataset[key].attrs["squid_temperature"] for key in self.keys} #temperature of system during scan
 		self.timestamp = {key: self.dig_dataset[key].attrs["alog_timestamp"] for key in self.keys} #timestamp of scan

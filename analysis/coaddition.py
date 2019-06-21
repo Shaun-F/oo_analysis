@@ -3,7 +3,7 @@ import datetime as dt
 import numpy as np
 import sys; sys.path.append("..")
 from toolbox.add_to_dataset import * #addtodataset, subtractfromdataset, assign_newdata
-#import numba; from numba import njit, jit, jitclass, float64
+import numba; from numba import njit, jit
 import time
 from toolbox.grand_spectra_init import initialization
 

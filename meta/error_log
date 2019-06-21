@@ -128,4 +128,26 @@ unexpected indent (MR_scan_analysis.py, line 203)1557096400.0270288
 
 too many arguments: expected 4, got 51557341199.8105106
 
-invalid syntax (MR_scan_analysis.py, line 157)
+invalid syntax (MR_scan_analysis.py, line 157)1558040282.7813265
+
+<lambda>() missing 2 required positional arguments: 'center' and 'f'1558042046.88828
+
+expected an indented block (lorentzian.py, line 14)1558042196.2342865
+
+lorentzian() missing 1 required positional argument: 'resolution'1558644804.6441882
+
+operands could not be broadcast together with shapes (20,) (256,) 1558646965.9233408
+
+invalid syntax (MR_scan_analysis.py, line 276)1558649895.7386334
+
+operands could not be broadcast together with shapes (296,) (256,) 1559246123.2607458
+
+operands could not be broadcast together with shapes (296,) (256,) 1559251399.6337986
+
+unexpected indent (MR_scan_analysis.py, line 159)1559253348.6487365
+
+'convolutions'1559253614.218856
+
+'max_likelihood_arith'1560970715.6228495
+
+invalid syntax (MR_scan_analysis.py, line 244)

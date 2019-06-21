@@ -22,13 +22,14 @@ class figures_class():
 		
 		#Plot parameters
 		self.extension = ".pdf"
-		self.savefile = savedir
+		self.savefile = savedir + '\\'
 		self.dpi = 600
 		self.label_font_size = 18
 		self.legend_font_size = 11
 		self.linewidth = 3.0
 		self.alpha = 0.5
 		self.xpad = 12
+		self.show = False
 		
 		#force attributes from kwargs, overriding above
 		for key,value in kwargs.items():
@@ -46,12 +47,13 @@ class figures_class():
 		
 		
 		#plot
+		plt.tight_layout()
 		
 		plt.plot(domain, reduced_data)
 		plt.savefig(self.savefile + "Coupling_sensitivity" + self.extension, dpi = self.dpi)
 		if 'show' in list(kwargs.keys()) and kwargs['show']==True:
 			plt.show()
-	
+		plt.clf()
 	def sensitivity_power(self, **kwargs):
 		"""
 		Plot the sensitivity to power"
@@ -66,12 +68,13 @@ class figures_class():
 		
 		
 		#plot
+		plt.tight_layout()
 		
 		plt.plot(domain, reduced_data)
 		plt.savefig(self.savefile + "power_sensitivity" + self.extension, dpi = self.dpi)
 		if 'show' in list(kwargs.keys()) and kwargs['show']==True:
 			plt.show()
-	
+		plt.clf()
 	def SNR(self, **kwargs):
 		"""
 		Plot the SNR
@@ -86,12 +89,13 @@ class figures_class():
 		
 		
 		#plot
+		plt.tight_layout()
 		
 		plt.plot(domain, reduced_data)
 		plt.savefig(self.savefile + "SNR" + self.extension, dpi = self.dpi)
 		if 'show' in list(kwargs.keys()) and kwargs['show']==True:
 			plt.show()
-	
+		plt.clf()
 	def sensitivity_DM(self, **kwargs):
 		"""
 		Plot the sensitivity to dark matter densities
@@ -104,14 +108,14 @@ class figures_class():
 		plt.xlabel("Axion Frequencies (Hz)")
 		plt.ylabel("Dark Matter Density Sensitivity")
 		
-		
+		plt.tight_layout()
 		plt.plot(domain, reduced_data)
 		plt.savefig(self.savefile + "DM_sensitivity" + self.extension, dpi = self.dpi)
 		
 		if 'show' in list(kwargs.keys()) and kwargs['show']==True:
 			plt.show()
-	
-	def time_vs_freq(self, **kwargs):
+		plt.clf()	
+	def time_v_freq(self, **kwargs):
 		"""
 		Plot the frequency scanned over time
 		"""
@@ -126,18 +130,21 @@ class figures_class():
 		times = list(map(lambda x: dt.datetime.strptime(x, "%d-%m-%Y %H:%M:%S"), times)) #set all timestamp strings to datetime objects
 		
 		fig, ax = plt.subplots()
-		ax.scatter(times, mode_freq, s=2)
 		
+		ax.scatter(times, mode_freq, s=2)
+		ax.set_xlabel("Date")
+		ax.set_ylabel("Mode Frequency (MHz)")
+		ax.set_title("Mode Frequency versus date")
 		
 		#set ticks
 		plt.locator_params(axis='x', nbins=8)
 		plt.xticks(rotation=25)
-		
+		plt.tight_layout()
 		plt.savefig(self.savefile + "time_v_freq" + self.extension, dpi = self.dpi)
 		
 		if 'show' in list(kwargs.keys()) and kwargs['show']:
 			plt.show()
-	
+		plt.clf()	
 	def candidates(self, **kwargs):
 		"""
 		Plot the placement of candidates over frequency
@@ -173,13 +180,13 @@ class figures_class():
 		plt.legend(loc=1, prop={'size':self.legend_font_size})
 		plt.tight_layout()
 		plt.tick_params(axis='x', pad = self.xpad)
-		
+
 		plt.savefig(self.savefile + "Run1A_candidates" + self.extension, dpi = self.dpi)
 		
 		if 'show' in list(kwargs.keys()) and kwargs['show']==True:
 			plt.show()
 		
-		
+		plt.clf()		
 	def scan_rate(self, **kwargs):
 		"""
 		Plot the number of scans per frequency   ### NOTE: Use logarithmic y-axis
@@ -191,7 +198,7 @@ class figures_class():
 		if 'show' in list(kwargs.keys()) and kwargs['show']:
 			plt.show()
 	
-	
+		plt.clf()	
 	def deltas(self, **kwargs):
 		"""
 		Plot the deltas as histogram. Measures gaussianity of data. ### stack all deltas on top of one another and measure dispersion that way + distribution.
@@ -204,19 +211,19 @@ class figures_class():
 		if 'show' in list(kwargs.keys()) and kwargs['show']==True:
 			plt.show()
 		
-	
+		plt.clf()	
 	def injected_signals(self, **kwargs):
 		"""
 		Plot the injected signals. Confirmation of sensitivity. Gray might have this code......
 		"""
 	
-	
+		plt.clf()	
 	def axion_model_compare(self, **kwargs):
 		"""
 			
 		"""
 	
-	
+		plt.clf()	
 	def temp_v_freq(self, **kwargs):
 		"""
 		Plot the temperature over frequency
@@ -246,14 +253,14 @@ class figures_class():
 		plt.title("Temperature of system vs mode frequency")
 		plt.xlabel("Frequency")
 		plt.ylabel("Temperature (K)")
-		
+		plt.tight_layout()
 		plt.scatter(frequencies, temperatures, s=2)
 		plt.savefig(self.savefile + "Temperature_v_Frequency" + self.extension, dpi = self.dpi)
 		
 		if 'show' in list(kwargs.keys()) and kwargs['show']==True:
 			plt.show()
 		
-	
+		plt.clf()	
 	def temp_v_time(self, **kwargs):
 		"""
 		Plot the temperature over time
@@ -276,6 +283,7 @@ class figures_class():
 					timestamps.append(dt.datetime.strptime(attrs['timestamp'], "%d-%m-%Y %H:%M:%S"))
 				
 		fig, ax = plt.subplots()
+		plt.tight_layout()
 		ax.scatter(timestamps, temperatures, s=2)
 		
 		#set labels
@@ -292,6 +300,6 @@ class figures_class():
 		
 		if 'show' in list(kwargs.keys()) and kwargs['show']==True:
 			plt.show()
-	
+		plt.clf()	
 	
 		

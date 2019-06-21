@@ -77,22 +77,26 @@ def reciprocated_clone_hpf(data, npairs, testing=False, scan_number='(Unknown)',
 	reflecting_time_stop = time.time()
 	
 	#Generate statistics about the data set and define variables
-
+	
+	
 	calculating_tophat_size_start = time.time()
 	maxdata = numpy.max(data)
 	mindata = numpy.min(data)
 	argmax = numpy.argmax(data)
 	argmin = numpy.argmin(data)
-	"""
+	
+	struc_length = 2*(numpy.absolute(argmax-argmin))
+	sigmamult_n = (2*numpy.pi)/(struc_length)*5*10**2
+
+	
+	
 	vratio = (maxdata-mindata)/(maxdata+mindata)
 	wratio = numpy.absolute(argmax - argmin)/sz
 	sigmamult = (vratio/wratio)*5*10**2
-	sigmao = numpy.ceil((2*n+1)*sigmamult)
-	"""
+	sigma = numpy.ceil((2*n+1)*sigmamult)
 	
-	struc_length = 2*(numpy.absolute(argmax-argmin))
-	sigmamult = (2*numpy.pi)/(struc_length)*5*10**2
-	sigma = numpy.ceil(sigmamult*(2*n+1))
+	#sigma = numpy.ceil(sigmamult_n*(2*n+1))*vratio/wratio
+	
 	if sigma>200:
 		sigma=200
 		print("Ceiling of reciprocated clone hpf reached")
@@ -177,7 +181,7 @@ def reciprocated_clone_hpf(data, npairs, testing=False, scan_number='(Unknown)',
 		print("Plotting recovered data from inverse fft'ed array")
 		plotter(pickORIG,savedir = sdir+'recovered data from ifft-ed array'+format)
 		print("Plotting filtered data")
-		plotter(filtereddata,savedir = sdir+'filtered data'+format)
+		plotter(filtereddata,savedir = sdir+'filtered data'+format, ylimits=[min(filtereddata), max(filtereddata)])
 		print("Plotting filter function")
 		plotter(tophat, savedir = sdir + "filter_function"+format)
 	
