@@ -43,3 +43,9 @@ frequencies.txt
 frequencies
 scan_rate.txt
 scan_rate
+
+#Unwanted folders
+######################
+rchpf_testing
+BS_Analysis_runs
+
