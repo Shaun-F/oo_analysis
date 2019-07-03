@@ -105,9 +105,17 @@ class modulation():
 		"""
 		Description:Function bins a given velocity-modulated axion shape by integration.
 
-		Parameters: Modulation types include 'solar', 'earth orbit', 'earth rotation'. Timestamp takes either the form "dd-mm-yyyy  hh:mm:ss AM", which is used by the Digitizer, or the form "yyyy-mm-dd hh:mm:ss-ss", which is the standard ISO 8601 format. Current shape models include "SHM", "axionDM_w_baryons", "pCDM_only", "pCDM_w_baryons", "pCDM_maxwell_like_form", "axionDM_only". Axion mass is in eV.
+		Parameters: 
+			Modulation types include 'solar', 'earth orbit', 'earth rotation'. 
+			Timestamp takes either the form "dd-mm-yyyy  hh:mm:ss AM", which is used by the Digitizer, or the form "yyyy-mm-dd hh:mm:ss-ss", which is the standard ISO 8601 format. 
+			Current shape models include "SHM", "axionDM_w_baryons", "pCDM_only", "pCDM_w_baryons", "pCDM_maxwell_like_form", "axionDM_only". 
+			Axion mass is in eV.
 
-		Optional Parameters: Resolution give the size of the bins in Hz. wantTseries specifies if the output should be in frequency space or as a timeseries (y/n). startfreq allows you to specify the position of the signal shape within the array (MHz). alpha, beta, T are fit parameters for the N-Body model.
+		Optional Parameters: 
+			Resolution give the size of the bins in Hz. 
+			wantTseries specifies if the output should be in frequency space or as a timeseries (y/n). 
+			startfreq allows you to specify the position of the signal shape within the array (MHz). 
+			alpha, beta, T are fit parameters for the N-Body model.
 
 		Output: velocity-modulated signal shape over frequency or time.
 		"""

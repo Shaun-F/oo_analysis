@@ -7,6 +7,10 @@ from dateutil.parser import parse
 import numpy
 
 
+"""
+See http://docs.astropy.org/en/stable/api/astropy.coordinates.Galactocentric.html for more information on 
+"""
+
 class transformer():
 	def __init__(self, **params):
 		self.cenpa_latlon = {"lon":-122.302753, "lat":47.660530}
@@ -75,7 +79,20 @@ class transformer():
 		
 		#coord.ITRS(cenpa_location_xyz.x, cenpa_location_xyz.y, cenpa_location_xyz.z, representation_type = coord.CartesianRepresentation, v_x=0*(u.km/u.s), v_y=0*(u.km/u.s), v_z=0*(u.km/u.s), differential_type = coord.CartesianDifferential, obstime=time)
 		
+	def experiment_posvel_GCRS(self, timestamp):
+		"""
+		Method finds the position and velocity of the experimental apparatus in the GCRS coordinate system (earth centered) at the given timestamp.
+		Typically of the order ~0.3 km/s (about 1/100 the orbital velocity of earth)
+		"""
+		cenpa_location_xyz = coord.EarthLocation.from_geodetic(lon=self.cenpa_latlon["lon"], lat = self.cenpa_latlon["lat"])
+		if isinstance(timestamp, str):	
+			times = astropy.time.Time(numpy.asarray([parse(timestamp)])) #Convert list of timestamps into astropy.time objects
+		elif isinstance(timestamp, list) or isinstance(timestamp, dict) or isinstance(timestamp, numpy.ndarray):
+			times = astropy.time.Time(numpy.asarray([parse(x) for x in timestamp]))
 		
+		posvel = cenpa_location_xyz.get_gcrs_posvel(obstime=times)
+		return {'v_x':posvel[1].x.to(u.km/u.s).value, "v_y":posvel[1].y.to(u.km/u.s).value, "v_z":posvel[1].z.to(u.km/u.s).value}
+	
 	def earth_posvel_ICRS(self, timestamp):
 		"""
 		Method finds the position and velocity of the earth in the ICRS coordinate system (barycenter of Solar System) at the given timestamp.
@@ -86,10 +103,11 @@ class transformer():
 		position_xyz = position_xyz*(u.AU.to(u.km))*(u.km/u.AU)
 		velocity_xyz = velocity_xyz*(u.AU.to(u.km)/(u.d.to(u.s)))*(u.km/u.s)*(u.d/u.AU)
 		return position_xyz, velocity_xyz
-		
+
 	def earth_vel_GalacticFrame(self, timestamp):
 		"""
 		Method returns the velocity of the earth in the frame of the galaxy at the given timestamp
+		Typically of the order ~30 km/s
 		"""
 		time = astropy.time.Time(parse(timestamp))
 		pos, vel = self.earth_posvel_ICRS(timestamp)

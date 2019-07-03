@@ -101,7 +101,7 @@ def MR_scan_analysis(scan, **params):
 			submeta = filter['meta']
 			#print("copies", copies, "\n window", window, "\n filtered_data", filtered_data)
 			if errors['maxed_filter_size']:
-				with open('BS_errors.txt', 'a+') as f:
+				with open('../meta/BS_errors.txt', 'a+') as f:
 					f.write("Background subtraction filter size maxed out with scan {0} \n".format(scan_number))
 		except TypeError as error:
 			raise

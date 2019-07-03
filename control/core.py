@@ -89,6 +89,11 @@ class core_analysis():
 		self.notes = {key: copy.deepcopy(self.dig_dataset[key].attrs["notes"]) for key in self.keys} #notes attached to scan
 
 		data.add_input(self.dig_dataset,self.Tsys,'Tsys')
+		
+		# Inject synthetic axion signals into datasets
+		axion_injector(self)
+		
+		
 		# derive necessary digitization structures??
 		
 		# metadata (bad scans, etc.)
@@ -102,8 +107,9 @@ class core_analysis():
 		 'bad_logging': self.no_axion_log
 		 }
 		 
-		# Inject synthetic axion signals into datasets
-		axion_injector(self)
+		
+		
+		
 		return None
 
     # defs for making decisions in the init

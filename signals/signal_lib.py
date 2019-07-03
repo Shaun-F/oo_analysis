@@ -6,6 +6,7 @@ Creation Date: 6/1/18
 """
 import numpy as np
 import scipy as sp
+from scipy import special
 from astropy import constants as Cnsts
 from astropy import units as U
 from datetime import datetime as dt
@@ -92,9 +93,18 @@ class signal(object):
 		return A
 
 	def ITS(self, freq, mass, sigma_v, v_lab): #bin_width,sigmav,vt,vr, freq,mass,sigma_v,v_lab
-		"""Description: Function takes in parameters and outputs probability to find axion at input frequency
-		Parameters: frequency (MHz) to find corresponding probability. Mass of axion in ev. velocity dispersion of axions in Kilometers per second. velocity of laboratory in galactic frame in Kilometers per second.
-		Output: Probability to find axion at input frequency"""
+		"""
+		Description: 
+			Function takes in parameters and outputs probability to find axion at input frequency
+		Parameters: 
+			frequency (MHz) to find corresponding probability. Can be array-like, float or integer
+			Mass of axion in ev. 
+			velocity dispersion of axions in Kilometers per second. 
+			velocity of laboratory in galactic frame in Kilometers per second.
+		
+		Output: 
+			Probability to find axion at input frequency
+		"""
 		if isinstance(freq, float) or isinstance(freq, int):
 			freq = [freq] #convert to list
 		freq_arr = np.asarray(freq) * 10**(6) #in Hz
@@ -106,6 +116,8 @@ class signal(object):
 		v = np.sqrt(2) * c * np.sqrt((freq_arr*h)/(RME) - 1) #velocity of axion
 		v_lab_mag = np.linalg.norm(v_lab) #speed of the experiment in a right handed coordinate system center on the galactic center
 		beta = 1/(2*(sigma_v**2)) #this is the beta from turner 1990
+		
+		
 		mask = np.where(freq_arr>rmfreq)
 		mask_complement = np.setdiff1d(range(len(freq_arr)), mask) #If input frequency is less than the rest mass frequency, probability is zero (nonphysical)
 		v_store = v.copy()
@@ -114,51 +126,54 @@ class signal(object):
 		v_store[mask_complement] = 0 #If input frequency is less than the rest mass frequency, probability is zero (nonphysical)
 		return v_store
 
-	def axionDM_w_baryons(self, mod_vel, v_sol, mass, freq):
+	def axionDM_w_baryons(self, mod_vel, v_sol, mass, freq, timestamp=""):
+		"""
+		Description: 
+			Function gives probability density for axion signal of Lentz et al. 2017
+		Parameters: 
+			mod_vel (km/s) is the variation of the experiments velocity from the mean solar velocity w.r.t a right-handed galactic coordinate system centered on the galactic center. 
+			v_sol (km/s) is the mean solar velocity. 
+			mass (eV) is the mass of the axion. 
+			freq (MHz) is a desired sample point.
+		Output: 
+			Probability to find an axion with given input frequency scaled by binwidth
+		"""
+		import numpy
 
-		"""
-		Description: Function gives probability density for axion signal of Lentz et al. 2017
-		Parameters: mod_vel (km/s) is the variation of the experiments velocity from the mean solar velocity w.r.t a right-handed galactic coordinate system centered on the galactic center. v_sol (km/s) is the mean solar velocity. mass (eV) is the mass of the axion. freq (MHz) is a desired sample point.
-		Output: Probability to find an axion with given input frequency.
-		"""
-		
-		#NO need for the following. velocities are now vectored quantities
-		"""
-		# Isolate the tangential velocity
-		if type(mod_vel)==type(0.0):
-			v_m = mod_vel
-		elif mod_vel.tangential:
-			v_m = mod_vel.tangential
-		elif mod_vel[1]:
-			v_m = mod_vel[1]
+		if mod_vel>200:
+			print("Error: modulation velocity for lentzian line shape should be relative to solar velocity, not relative to galactic center")
 		else:
-			return "Error: Modulation velocity format not recognized"
-		"""
+			pass
 
-		f = freq*10**6 #Hz
+		if isinstance(freq, float) or isinstance(freq, int):
+			f = np.asarray([freq*10**6]) #hz
+		elif isinstance(freq, numpy.ndarray) or isinstance(freq, list):
+			f = np.asarray(freq)*10**6 #hz
+		
 		c = Cnsts.c.value*10**(-3) #Km/s
 		RME = mass #eV
-		h = Cnsts.h.value*6.242*10**18 #eV*s
+		h = Cnsts.h.to(U.eV*U.s).value #eV*s
 		f_o = RME/h #rest mass frequency in 1/s
 
-		if f_o>f: #If frequency is less than rest mass frequency, probability is zero.
-			return 0.0
+		
 
 		#Define various parameters and constants for the distribution function
-		alpha = 0.3
-		beta = 1.3
+		alpha = 0.36
+		beta = 1.39
 		T = 4.7*10**(-7)
-		gamma = sp.special.gamma((1+alpha)/beta)
-
-		Boost = 1-sum((mod_vel)*(v_sol))/((v_sol**2).sum()) #Modulating parameter to account for diurnal variations
-
-
-
+		gamma = special.gamma((1+alpha)/beta)
+		
+		
+		mask = np.where(f>f_o)
+		mask_complement = np.setdiff1d(range(len(f)), mask) #If input frequency is less than the rest mass frequency, probability is zero (nonphysical)
+		arr = f.copy()
+		
+		Boost = 1-((mod_vel)*(v_sol))/((v_sol**2)) #Modulating parameter to account for diurnal variations
 		N_num = beta
 		N_den = ((Boost/(T*f_o))**beta)**(-(1.0+alpha)/beta)*(Boost/(T*f_o))**(alpha)*gamma
 		nrmcnst = N_num/N_den
 
 		#The distribution function
-		A = nrmcnst*(((f-f_o)*Boost)/(f_o*T))**(alpha)*np.exp(-(((f-f_o)*Boost)/(f_o*T))**beta)
-
-		return A
+		arr[mask] = nrmcnst*(((f[mask]-f_o)*Boost)/(f_o*T))**(alpha)*np.exp(-(((f[mask]-f_o)*Boost)/(f_o*T))**beta)
+		arr[mask_complement]=0
+		return arr
