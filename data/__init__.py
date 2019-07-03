@@ -5,10 +5,8 @@ Created by: Erik Lentz
 Creation Date: 10/26/18
 """
 import sys
-sys.path.append("../experiment")
 sys.path.append("..")
 import time
-from get_squid_dataset import get_squid_dataset
 def input(parameters):
 	# sets up start and stop parameters
 	start = int(parameters['start_scan'])

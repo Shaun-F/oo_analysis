@@ -1,10 +1,12 @@
 import matplotlib.pyplot as plt
 import numpy
 import h5py
-def plotter(scan_number_or_array, savedir = None, **kwargs):
+import warnings
+warnings.filterwarnings("ignore")
+def plotter(scan_number_or_array, savedir = None, show=False, **kwargs):
 	#retrieve data
 	dpi=1000
-	
+	plt.clf()
 	whatplot = scan_number_or_array
 	if isinstance(whatplot, int):
 		scan_number = whatplot
@@ -12,9 +14,9 @@ def plotter(scan_number_or_array, savedir = None, **kwargs):
 			f = h5py.File(b"../data/raw/run1a_data.hdf5", "r")
 			data_file = f['digitizer_log_run1a'][str(scan_number)]
 
-			fstart = data_file.attrs['start_frequency']
-			fstop = data_file.attrs['stop_frequency']
-			fres = data_file.attrs['frequency_resolution']
+			fstart = float(data_file.attrs['start_frequency'])
+			fstop = float(data_file.attrs['stop_frequency'])
+			fres = float(data_file.attrs['frequency_resolution'])
 			
 			data = data_file[...]
 			data = data[numpy.isfinite(data)]
@@ -30,7 +32,6 @@ def plotter(scan_number_or_array, savedir = None, **kwargs):
 			plt.title("Scan number {0}".format(scan_number))
 			plt.xlabel("frequency (MHz)")
 			plt.ylabel("power (normed)")
-			
 			for arg,val in kwargs.items():
 				if arg=='title':
 					plt.title(val)
@@ -53,11 +54,15 @@ def plotter(scan_number_or_array, savedir = None, **kwargs):
 				if arg=='yticks':
 					plt.yticks(val)
 					del kwargs['yticks']
-					
+			
+			plt.locator_params(axis='x', nbins=12)
+			plt.xticks(rotation=30)
+			plt.tight_layout()
+			plt.ticklabel_format(useOffset=False)
 			plt.plot(domain, data, **kwargs)
 			if savedir!=None:
 				plt.savefig(savedir, dpi=dpi)
-			else:
+			if show:
 				plt.show()
 			f.close()
 		except (AttributeError, KeyError):
@@ -70,7 +75,7 @@ def plotter(scan_number_or_array, savedir = None, **kwargs):
 				m=min(whatplot)
 			ydata = whatplot[numpy.isfinite(whatplot.real)].real
 			xdata = numpy.arange(len(ydata))
-			plt.ylim(m, max(ydata)*(1+max(ydata)-min(ydata)))
+			plt.ylim(m, max(ydata)*(1+1/24))
 			
 			for arg,val in kwargs.items():
 				if arg=='title':
@@ -90,7 +95,7 @@ def plotter(scan_number_or_array, savedir = None, **kwargs):
 				if arg=='data':
 					xdata = kwargs['data'][0]
 					ydata = kwargs['data'][1]
-			for string in ['title', 'xlabel', 'ylable', 'xlimits', 'ylimits', 'xticks', 'yticks', 'data']:
+			for string in ['title', 'xlabel', 'ylabel', 'xlimits', 'ylimits', 'xticks', 'yticks', 'data']:
 				if string in kwargs.keys():
 					del kwargs[string]
 			

@@ -1,7 +1,7 @@
 """
 core.py: holds  control routines for analysis
 
-Created by: Erik Lentz
+Created by: Erik Lentz and Modified by Shaun Fell
 Creation Date: 6/1/18
 """
 import sys; import os
@@ -12,8 +12,10 @@ from experiment.get_squid_dataset import get_squid_dataset
 from experiment.calc_sys_temp_offline import calc_sys_temp
 import time; import datetime
 import argparse
+import copy 
 from toolbox.plot_dataset import plotter
 from toolbox.freq_to_mass import freq_to_mass
+from analysis.synthetic_injection import axion_injector
 
 ############# Argument parsing
 P = argparse.ArgumentParser(description="Main execution file for oo_analysis")
@@ -63,7 +65,7 @@ class core_analysis():
 		import data.__init__ 
 		pulldata_start = time.time()
 		self.dig_dataset, self.h5py_file, self.no_axion_log, self.partitioned = data.__init__.input(params)
-		self.keys = [i for i in self.dig_dataset.keys() if i not in self.no_axion_log] #Was originally dig_dataset,but some digitizer logs didnt have associated axion logs.
+		self.keys = [copy.deepcopy(i) for i in self.dig_dataset.keys() if i not in self.no_axion_log] #Was originally dig_dataset,but some digitizer logs didnt have associated axion logs.
 		pulldata_stop = time.time()
 		
 		
@@ -77,14 +79,14 @@ class core_analysis():
 		
 		# derive necessary experiment data structures (put into dig_dataset)
 		#Populate parameter dict's with dataset attributes.
-		self.Tsys = {key: self.dig_dataset[key].attrs["squid_temperature"] for key in self.keys} #temperature of system during scan
-		self.timestamp = {key: self.dig_dataset[key].attrs["alog_timestamp"] for key in self.keys} #timestamp of scan
-		self.mode_frequencies = {key: self.dig_dataset[key].attrs['mode_frequency'] for key in self.keys} #mode frequency of scan
-		self.axion_mass = {key: freq_to_mass(self.mode_frequencies[key]*10**6) for key in self.keys} #axion mass in eV with corresponding frequency equal to mode frequency
-		self.fstart = {key: float(self.dig_dataset[key].attrs["start_frequency"]) for key in self.keys} #starting frequencies of scans
-		self.fstop = {key: float(self.dig_dataset[key].attrs["stop_frequency"]) for key in self.keys} #ending frequencies of scans
-		self.Q = {key: float(self.dig_dataset[key].attrs["Q"]) for key in self.keys} #quality factor during scan
-		self.notes = {key: self.dig_dataset[key].attrs["notes"] for key in self.keys} #notes attached to scan
+		self.Tsys = {key: copy.deepcopy(self.dig_dataset[key].attrs["squid_temperature"]) for key in self.keys} #temperature of system during scan
+		self.timestamp = {key: copy.deepcopy(self.dig_dataset[key].attrs["alog_timestamp"]) for key in self.keys} #timestamp of scan
+		self.mode_frequencies = {key: copy.deepcopy(self.dig_dataset[key].attrs['mode_frequency']) for key in self.keys} #mode frequency of scan
+		self.axion_mass = {key: freq_to_mass(copy.deepcopy(self.mode_frequencies[key])*10**6) for key in self.keys} #axion mass in eV with corresponding frequency equal to mode frequency
+		self.fstart = {key: float(copy.deepcopy(self.dig_dataset[key].attrs["start_frequency"])) for key in self.keys} #starting frequencies of scans
+		self.fstop = {key: float(copy.deepcopy(self.dig_dataset[key].attrs["stop_frequency"])) for key in self.keys} #ending frequencies of scans
+		self.Q = {key: float(copy.deepcopy(self.dig_dataset[key].attrs["Q"])) for key in self.keys} #quality factor during scan
+		self.notes = {key: copy.deepcopy(self.dig_dataset[key].attrs["notes"]) for key in self.keys} #notes attached to scan
 
 		data.add_input(self.dig_dataset,self.Tsys,'Tsys')
 		# derive necessary digitization structures??
@@ -99,6 +101,9 @@ class core_analysis():
 		 'Q':10**6,
 		 'bad_logging': self.no_axion_log
 		 }
+		 
+		# Inject synthetic axion signals into datasets
+		axion_injector(self)
 		return None
 
     # defs for making decisions in the init

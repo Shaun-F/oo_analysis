@@ -2,7 +2,7 @@
 """
 Created on Wed Aug  1 14:52:47 2018
 
-@author: Shanedrum
+@author: Shaun Fell
 """
 import sys
 sys.path.append("..")
@@ -45,35 +45,31 @@ def MR_scan_analysis(scan, **params):
 		int_time = float(digitizer_scan.attrs['integration_time'])
 		freqs = numpy.asarray([fstart + res*i for i in numpy.arange(start=0, stop=((fstop-fstart)/res))])
 
-
-		#print('\n\n fstart', fstart, '\n\n fstop', fstop, '\n\n res', res)
 		binwidth = float(res)*10**6 # in Hz
 		
 		h = const.h.to(U.eV*u.s).value #plancks const eV*s
 		k = const.k_B.to(U.J/U.Kelvin).value #Boltzmanns constant J/K
 		Tsys = params["Tsys"] #calculate the system temperature
 		power_johnson = binwidth*k*Tsys
-		constants_stop = time.time()
+				
+		modulation_type = params["pec_vel"]
+		signal_shape = params["signal_dataset"][scan_number]['signal']
 		
 		data = digitizer_scan[...]
-
-		
-		modulation_type = params["pec_vel"]
-		#print("modulation_type: ", modulation_type)
-		signal_shape = params["signal_dataset"][scan_number]['signal']
 		
 		scan_length = len(freqs)
 		middlefreqpos = int(numpy.floor(scan_length/2))
 		middlefreq = freqs[(middlefreqpos-1)]
 		nbins = params['nbins']
 		axion_RMF = float(middlefreq*10**6 - (middlefreq*10**6)%binwidth) #calculate axion at center of scan (Hz)
-		#print("Axion RMF", axion_RMF)
 		timestamp = digitizer_scan.attrs["timestamp"]
 		axion_mass = float(axion_RMF*h)
-		#print("Axion mass", axion_mass)
 		startfreq = float(digitizer_scan.attrs["start_frequency"])*10**6 #Hz
-		#print("start freq", startfreq)
 		wantTseries=None
+		
+		constants_stop = time.time()
+		
+		
 		
 		#Calculate average power deposited by axion
 		axion_power_start = time.time()
@@ -94,8 +90,7 @@ def MR_scan_analysis(scan, **params):
 		
 		axblank = numpy.empty_like(signal_shape)
 		DFSZshape = signal_shape*dfszaxion
-		#print("DFSZshape", DFSZshape)
-		#print("Signal shape", str(signal_shape).split(' '))
+
 		#Remove Receiver response from scan
 		BS_start = time.time()
 		try:
@@ -118,7 +113,6 @@ def MR_scan_analysis(scan, **params):
 		deltas = np.asarray((filtered_data - filtered_data_mean))
 		digitizer_scan = bin_consolidator(digitizer_scan, res)
 		
-		#print("\n deltas", deltas, "\n digitizer_scan", digitizer_scan)
 		
 		consolidation_stop = time.time()
 		
@@ -127,14 +121,11 @@ def MR_scan_analysis(scan, **params):
 		Q = params["axion_scan"].attrs["Q"]
 		res_freq = params["axion_scan"].attrs["mode_frequency"] #MHz
 		lorentzian_profile = lorentzian(Q, res_freq*10**6, fstart*10**6, fstop*10**6, binwidth)
-		#print(Q, res_freq*10**6, fstart*10**6, fstop*10**6, binwidth)
 		cc = 0.5
 		cav_trans_mod = cc*lorentzian_profile
 		axion_power_excess_watts = convolve_two_arrays(DFSZshape, cav_trans_mod)
 		cavity_lorentz_stop = time.time()
-		
-		#print("\nQ", Q, "\n\n Nbins", nbins, "\n res freq", res_freq, "\n lorentzian", lorentzian_profile, "\n cav_trans_mod", cav_trans_mod, "\n axion_power_excess_watts", axion_power_excess_watts)
-		#print("\n\n lorentzian", lorentzian_profile)
+
 		
 		#Genereate bin-wise scan stats assuming all power in single bin
 		bin_stats_start = time.time()
@@ -145,7 +136,6 @@ def MR_scan_analysis(scan, **params):
 		SNR = (axion_power_excess_watts/sigma_w)
 		bin_stats_stop = time.time()
 		
-		#print("\n weighted sigma", sigma_w, "\n boltzmann", k, "\n BkT", power_johnson, "\n Tsys", Tsys, "\n binwidth", binwidth, "\n int_time", int_time, "\n SNR", SNR, "\n axion_power_excess", axion_power_excess_watts)
 		
 		chi_squared_start = time.time()
 		chi_squared_results = chi_squared(power_deltas, DFSZshape, lorentzian_profile, sigma_w, cc=0.5)
@@ -160,10 +150,6 @@ def MR_scan_analysis(scan, **params):
 		model_excess_sqrd = chi_squared_results['chi_squared_term_three']
 		#Fit to axion signal
 
-		#print("sensitivity_power", sensitivity_power, "\n coupling sens", sensitivity_coupling, "\n max likelihood", maximum_likelihood, "\n axion_fit_significance", axion_fit_significance,
-				#"\n axion_fit_uncertainty", axion_fit_uncertainty, "\n optimal_weight_sum", optimal_weight_sum, "\n model_excess_sqrd", model_excess_sqrd)
-		#perform convolution based on convolution theorem
-
 		
 		axion_rmfs_start = time.time()
 		axion_rmfs = []
@@ -175,13 +161,8 @@ def MR_scan_analysis(scan, **params):
 
 		#consolidate statisitics
 		nscans = numpy.pad(nscans, len(axblank), 'constant', constant_values = 0)
-		#deltas = numpy.pad(deltas, len(axblank), 'constant', constant_values=0)
 		SNR = numpy.pad(SNR, len(axblank), 'constant', constant_values = 0)
-		#power_deviation = numpy.pad(power_deltas, len(axblank), 'constant', constant_values = 0) #weighted_deltas
 		
-		
-		#print("\n SNR", SNR)
-		#print("\n\n", power_deltas) #these look good. Delete after debugging.
 		
 		
 	except (KeyError, ValueError, IndexError) as error:
@@ -258,7 +239,7 @@ def chi_squared(power_deltas, axion_signal, cavity_lorentzian, noise_power, conv
 	else:
 		cc = kwargs['cc']
 	if 'cl_coeff' not in kwargs:
-		cl_coeff = 1.64485 #how many sigmas does 90% of data fall within
+		cl_coeff = 1.64485 #90% confidence interval
 	else:
 		cl_coef = kwargs['cl_coeff']
 	pad_len = len(axion_signal)
@@ -278,42 +259,12 @@ def chi_squared(power_deltas, axion_signal, cavity_lorentzian, noise_power, conv
 	chi_squared_small_difference = chi_squared_term_three*(2*maximum_likelihood+1) - 2*chi_squared_term_two #equation 5.28 in Lentz Thesis
 	maximum_likelihood_dispersion = new_padding(1/numpy.sqrt(2*chi_squared_small_difference), (pad_len,pad_len), pad_val = np.inf) #equ 5.27 in Lentz Thesis
 	
-	"""
-	print("\n Power Deltas", power_deltas)
-	print("\n axion_signal", axion_signal)
-	print("\n cavity_lorentzian", cavity_lorentzian)
-	print("\n chi_squared_small_difference", chi_squared_small_difference)
-	print("\n maximum_likelihood", maximum_likelihood)
-	print("\n chi_squared_term_one", chi_squared_term_one)
-	print("\n chi_squared_term_two", chi_squared_term_two)
-	print("\n chi_squared_term_three", chi_squared_term_three)
-	print("\n cavity_transmission", cavity_transmission)
-	print("\n transmitted_power_deltas", transmitted_power_deltas)
-	print("\n Noise power", noise_power)
-	"""
 	axion_fit_significance = maximum_likelihood/maximum_likelihood_dispersion#equ 5.34 in Lentz Thesis
 	
 	#Sensitivity is calculated using significance of fit to axion of known power
 	power_sensitivity = new_padding(maximum_likelihood_dispersion*cl_coeff, (pad_len,pad_len), pad_val = np.inf)
 	coupling_sensitivity = numpy.sqrt(power_sensitivity)
-	
-	
-	"""
-	import matplotlib.pyplot as plt
-	savedir = 'C:/Users/shaun/Desktop/'
-	plt.title("Chi squared term two"); plt.plot(chi_squared_term_two); plt.savefig(savedir + "chi_squared_term_two" + ".png"); plt.clf()
-	plt.title("Chi squared term three"); plt.plot(chi_squared_term_three); plt.savefig(savedir + "chi_squared_term_three" + ".png"); plt.clf()
-	plt.title("cavity transmission"); plt.plot(cavity_transmission); plt.savefig(savedir + "cavity_transmission" + ".png"); plt.clf()
-	plt.title("power deltas"); plt.plot(power_deltas); plt.savefig(savedir + "power_deltas" + ".png"); plt.clf()
-	plt.title("axion signal"); plt.plot(axion_signal);plt.savefig(savedir + "axion_signal" + ".png"); plt.clf()
-	plt.title("cavity lorentzian"); plt.plot(cavity_lorentzian); plt.savefig(savedir + "cavity_lorentzian" + ".png"); plt.clf()
-	plt.title("power sensitivity"); plt.plot(power_sensitivity); plt.savefig(savedir + "power_senstivitiy" + ".png"); plt.clf()
-	plt.title("axion fit sig"); plt.plot(axion_fit_significance); plt.savefig(savedir + "axion_fig_sig" + ".png"); plt.clf()
-	plt.title("axion fit unce"); plt.plot(maximum_likelihood_dispersion); plt.savefig(savedir + "axion_fig_uncer" + ".png"); plt.clf()
-	"""
-	
-	
-	
+
 	
 	results = {'chi_squared_term_one': chi_squared_term_one,
 				'chi_squared_term_two': chi_squared_term_two,

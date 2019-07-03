@@ -7,22 +7,30 @@ Creation Date: 7/19/18
 import sys
 sys.path.append("..")
 def poly_fit(inputs,degree=6):
+	import numpy
+	signal = inputs
     # subtracts fitted polynomial from input arrays
     # retreive fitting kernel
 
     # execute multiprocessing routine for fitting
 
     # execute multiprocessing routine for subtraction
-
-    return outputs # in dictionary form
+	domain = numpy.arange(len(inputs))
+	polyfit = numpy.polyfit(domain, signal, degree)
+	outputs = signal/(numpy.poly1d(polyfit)(domain))
+	return outputs # in dictionary form
 
 def SG(inputs,window=101,degree=4):
+	from scipy.signal import savgol_filter as SGfilter
+	signal = inputs
     # subtracts convolved polynomial from input arrays
     # fit using python packages
 
     # execute multiprocessing routine for subtraction
-
-    return outputs # in dictionary form
+	
+	to_remove = SGfilter(signal, window, degree)
+	outputs = signal/to_remove
+	return outputs # in dictionary form
 
 def RCHPF(inputs,window=10,copies=3,dyn=False, **submeta):
 	""" the only one we need right now

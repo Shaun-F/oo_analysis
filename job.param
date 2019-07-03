@@ -11,7 +11,7 @@
 signal='SHM'
 pec_vel='earth rotation'
 filter='RCHPF'
-filter_params=[10,3]
+filter_params=[10,5]
 nbins=256
 
 pull_data='true'

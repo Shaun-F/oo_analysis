@@ -2,8 +2,10 @@ import os
 import sys
 from scipy.optimize import curve_fit
 import numpy as np
+import h5py
 
-def calc_sys_temp(h5py_digitizer_dataset, h5py_axion_dataset, squid_temp_dataset):
+
+def calc_sys_temp(h5py_digitizer_dataset):
 	"""
 	Function computes the system temperature. 
 	h5py_digitizer_dataset should be (h5pyfile)["digitizer_log_run1a"]["(digitizer id)"]
@@ -14,21 +16,20 @@ def calc_sys_temp(h5py_digitizer_dataset, h5py_axion_dataset, squid_temp_dataset
 	"""
 	
 	dig_scan=h5py_digitizer_dataset
-	axion_scan = h5py_axion_dataset
 		
         #Get sensor values
-	cavity_bottom_temp = float(axion_scan.attrs["cavity_top_temperature"])
-	cavity_top_temp = float(axion_scan.attrs["cavity_bottom_temperature"])
+	cavity_bottom_temp = float(dig_scan.attrs["cavity_top_temperature"])
+	cavity_top_temp = float(dig_scan.attrs["cavity_bottom_temperature"])
 	T_cavity = (cavity_bottom_temp + cavity_top_temp)/2
-	timestamp = axion_scan.attrs["timestamp"]
-	squid_temperature = float(squid_temp_dataset[...]) #This is the temperature of A4 in the RF chain.
+	timestamp = dig_scan.attrs["timestamp"]
+	squid_temperature = float(dig_scan.attrs['squid_temperature'][...]) #This is the temperature of A4 in the RF chain.
         
-	fitted_func = power_fitter(dig_scan, axion_scan)
+	fitted_func = power_fitter(dig_scan)
 	R = np.max(fitted_func)/np.min(fitted_func)
 
 	System_temp = (squid_temperature - T_cavity)/(R-1) #See supplementary material of the run1a results paper for equation explanation
 
-	return {"system temperature":System_temp, "power ratio":R, "squid temperature":squid_temperature, "cavity temperature":T_cavity}
+	return {"system temperature":System_temp, "power ratio":R, "squid temperature":squid_temperature, "cavity temperature":T_cavity, "Fitted function":fitted_func}
 
 
 def lorentzian(resonant_frequency, Q, size_of_lorentzian_in_bins, bin_size):
@@ -41,13 +42,13 @@ def lorentzian(resonant_frequency, Q, size_of_lorentzian_in_bins, bin_size):
 	return lorentzian
 
 
-def power_fitter(digitizer_scan, axion_scan):
+def power_fitter(digitizer_scan):
 
 	dig_scan = digitizer_scan
 	power_spec = dig_scan[...] #power spectrum ch 1
 	bin_size = float(dig_scan.attrs["frequency_resolution"])   #frequency res ch1. in units of Hz
-	Q = float(axion_scan.attrs["Q"]) #Q ch1
-	res_freq = float(axion_scan.attrs["mode_frequency"])     #mode freq ch1. in units of Hz
+	Q = float(digitizer_scan.attrs["Q"]) #Q ch1
+	res_freq = float(digitizer_scan.attrs["mode_frequency"])     #mode freq ch1. in units of Hz
 	length= len(power_spec)
 
 	lorentzian = lambda f: (1/(2*np.pi))*(res_freq/Q)/((f-res_freq)**2 + (res_freq/(2*Q))**2)
@@ -59,7 +60,7 @@ def power_fitter(digitizer_scan, axion_scan):
 	
 def get_squid_dataset(timestamp):
 	"""function gets the squid_temperature value closest to the input timestamp. Must be in format dd-mm-yyyy hh:mm:ss"""
-	f = h5py.File('run1a_data', 'r')["squid_temperature_run1a"]
+	f = h5py.File('../data/raw/run1a_data.hdf5', 'r')["squid_temperature_run1a"]
 	keys = [x for x in f.keys()]
 	year, month, day = str(timestamp[6:10]),str(timestamp[3:5]),str(timestamp[0:2])
 	hour, minute, second = str(timestamp[11:13]),str(timestamp[14:16]),str(timestamp[17:19])
