@@ -3,10 +3,8 @@ scan_analysis.py: manages the analysis of all scan_analysis
 
 Created by: Erik Lentz
 """
-import sys
-sys.path.append("..")
-import analysis.MR_scan_analysis
-from analysis.MR_scan_analysis import MR_scan_analysis
+import oo_analysis.analysis.MR_scan_analysis
+from oo_analysis.analysis.MR_scan_analysis import MR_scan_analysis
 
 # handle the background-subtracted data\
 

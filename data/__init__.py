@@ -4,9 +4,8 @@ __init__.py: main init file for data
 Created by: Erik Lentz
 Creation Date: 10/26/18
 """
-import sys
-sys.path.append("..")
 import time
+import os
 def input(parameters):
 	# sets up start and stop parameters
 	start = int(parameters['start_scan'])
@@ -16,7 +15,8 @@ def input(parameters):
 	import warnings
 	warnings.simplefilter(action='ignore', category=FutureWarning)
 	print("Loading hdf5 file and datasets")
-	data_file = h5py.File(b"../data/raw/run1a_data.hdf5", "r+")
+	raw_data_filename = os.getcwd() + "/oo_analysis/data/raw/run1a_data.hdf5"
+	data_file = h5py.File(raw_data_filename.encode(), "r+")
 	
 	if "bad_timestamps_run1a" not in data_file.keys():
 		data_file.create_dataset(name="bad_timestamps_run1a", dtype="S10", data = [b"initval"], maxshape=(None,))
@@ -38,7 +38,7 @@ def input(parameters):
 						no_axion_log.append(str(key))
 			except KeyError:
 				pass
-			if counter>=5000:
+			if counter>=parameters['partition']:
 				partitioned = True
 				break
 
@@ -65,17 +65,3 @@ def add_input(database,trait,trait_name):
 			print("Error with adding input (key {0}, trait {1}, trait_name {2}".format(key, trait, trait_name))
 			open('../meta/error_log', 'a+').write(str(time.time())+ "\n\n"+ str(error))
 			raise
-	"""
-	for i in range(start,stop):
-		try:
-			inx = str(i)
-			dig_dataset[inx] = data_file["digitizer_log_run1a"][inx]
-		except KeyError:
-			continue #No digitizer log found. check next scan number
-		try:
-			inx = str(i)
-			axion_dataset[inx] = data_file["axion_log_run1a"][inx]
-		except KeyError:
-			no_axion_log.append(str(i))
-			continue
-	"""

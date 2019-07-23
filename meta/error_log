@@ -150,4 +150,130 @@ unexpected indent (MR_scan_analysis.py, line 159)1559253348.6487365
 
 'max_likelihood_arith'1560970715.6228495
 
-invalid syntax (MR_scan_analysis.py, line 244)
+invalid syntax (MR_scan_analysis.py, line 244)1562268528.3173442
+
+Unknown format code 'f' for object of type 'str'1562604323.6093204
+
+ufunc 'isnan' not supported for the input types, and the inputs could not be safely coerced to any supported types according to the casting rule ''safe''1563212405.266737
+
+No conversion path for dtype: dtype('<U19')1563313624.1160872
+
+window_length must be odd.1563313720.7605999
+
+only integers, slices (`:`), ellipsis (`...`), numpy.newaxis (`None`) and integer or boolean arrays are valid indices1563313720.7655816
+
+only integers, slices (`:`), ellipsis (`...`), numpy.newaxis (`None`) and integer or boolean arrays are valid indices1563314717.307473
+
+'filter'1563314717.307473
+
+'filter'1563314717.3258634
+
+'filter'1563314827.8573804
+
+'filter params'1563314827.8573804
+
+'filter params'1563314827.87119
+
+'filter params'1563314853.0887744
+
+reciprocated_clone_hpf() got an unexpected keyword argument 'dyn'1563314883.1372757
+
+reciprocated_clone_hpf() got multiple values for argument 'npairs'1563401547.6316013
+
+too many values to unpack (expected 2)1563401841.3009207
+
+Field names only allowed for compound types1563401888.4132018
+
+'numpy.bool_' object is not iterable1563402021.292206
+
+string indices must be integers1563402056.1853232
+
+('String does not contain a date:', '-')1563402120.6789238
+
+('String does not contain a date:', '-')1563402462.8531914
+
+('String does not contain a date:', '-')1563402498.7448387
+
+('String does not contain a date:', '-')1563402523.3265846
+
+list indices must be integers or slices, not str1563467626.2871647
+
+reciprocated_clone_hpf() got an unexpected keyword argument 'copies'1563467699.705152
+
+'NoneType' object is not iterable1563472304.6275043
+
+operands could not be broadcast together with shapes (12,) (256,) 1563475561.207394
+
+'scan_num'1563475561.2224386
+
+'scan_num'1563475561.691658
+
+'scan_num'1563475590.6572177
+
+'scan_number'1563475590.6572177
+
+'scan_number'1563475590.704088
+
+'scan_number'1563475642.7777355
+
+reciprocated_clone_hpf() got an unexpected keyword argument 'restype'1563547413.9533272
+
+solar_vel_GalacticFrame() missing 1 required positional argument: 'timestamp'1563547519.4014106
+
+'13-05-2017 08:28:00'1563547541.8965867
+
+'13-05-2017 08:28:00'1563547607.6847122
+
+'13-05-2017 08:28:00'1563547855.5528612
+
+Parser must be a string or character stream, not dict1563553120.6597216
+
+'>' not supported between instances of 'list' and 'int'1563554878.322355
+
+index 1 is out of bounds for axis 0 with size 01563554937.70633
+
+'method' object is not subscriptable1563555229.6157846
+
+'method' object is not subscriptable1563555255.41488
+
+'method' object is not subscriptable1563555352.0748122
+
+index 1 is out of bounds for axis 0 with size 01563555496.926706
+
+index 1 is out of bounds for axis 0 with size 01563555509.3588867
+
+index 1 is out of bounds for axis 0 with size 01563555566.4198349
+
+index 1 is out of bounds for axis 0 with size 01563555603.829136
+
+index 1 is out of bounds for axis 0 with size 01563555673.228617
+
+index 1 is out of bounds for axis 0 with size 01563555695.4224217
+
+index 1 is out of bounds for axis 0 with size 01563555731.113712
+
+index 1 is out of bounds for axis 0 with size 01563555747.477212
+
+index 1 is out of bounds for axis 0 with size 01563555790.1674159
+
+index 1 is out of bounds for axis 0 with size 01563555874.5725014
+
+index 1 is out of bounds for axis 0 with size 01563555890.1353943
+
+index 1 is out of bounds for axis 0 with size 01563555956.2061236
+
+'float' object is not subscriptable1563889835.0337763
+
+'NoneType' object is not iterable1563890136.7880883
+
+'NoneType' object is not iterable1563892882.251204
+
+'>' not supported between instances of 'float' and 'str'1563893084.0026324
+
+Cannot cast ufunc add output from dtype('complex128') to dtype('<f4') with casting rule 'same_kind'1563893169.8568254
+
+Cannot cast ufunc add output from dtype('complex128') to dtype('<f4') with casting rule 'same_kind'1563893452.1843913
+
+ufunc 'add' did not contain a loop with signature matching types dtype('<U53') dtype('<U53') dtype('<U53')1563894768.6422276
+
+'axion_injector' object is not iterable

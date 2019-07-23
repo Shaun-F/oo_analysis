@@ -3,6 +3,7 @@ Script plots the figures of merit for the analysis
 """
 import h5py
 import matplotlib.pyplot as plt
+plt.style.use('seaborn-darkgrid')
 import numpy as np
 import os, sys
 
@@ -15,10 +16,11 @@ class figures_class():
 		if savedir == 'here':
 			savedir = os.path.abspath(os.path.dirname(sys.argv[0]))
 		#set values common to all plots
-		self.file = h5py.File(b'../data/raw/run1a_data.hdf5', 'r')
+		raw_data_filename = os.getcwd() + "/data/raw/run1a_data.hdf5"
+		self.file = h5py.File(raw_data_filename.encode(), 'r')
 		self.grand_spectra_group = self.file['grand_spectra_run1a']
 		self.digitizer_group = self.file['digitizer_log_run1a']
-		self.axion_frequencies = self.grand_spectra_group['axion_frequencies'][...]
+		self.axion_frequencies_MHz = self.grand_spectra_group['axion_frequencies'][...]*10**(-6)
 		
 		#Plot parameters
 		self.extension = ".pdf"
@@ -30,6 +32,7 @@ class figures_class():
 		self.alpha = 0.5
 		self.xpad = 12
 		self.show = False
+		self.RF_interference_mask = (self.axion_frequencies_MHz<660.16)|(self.axion_frequencies_MHz>660.27)
 		
 		#force attributes from kwargs, overriding above
 		for key,value in kwargs.items():
@@ -39,12 +42,15 @@ class figures_class():
 	def sensitivity_coupling(self, **kwargs):
 		data = self.grand_spectra_group['sensitivity_coupling'][...]
 		mask = np.isfinite(data)
-		reduced_data = data[mask]
-		domain = self.axion_frequencies[mask]
+		master_mask = mask&self.RF_interference_mask
+		reduced_data = data[master_mask]
+		domain = self.axion_frequencies_MHz[master_mask]
 		plt.title("Coupling sensitivity of run1a")
-		plt.xlabel("Axion Frequencies (Hz)")
-		plt.ylabel(r"Coupling Sensitivity")
-		
+		plt.xlabel("Axion Frequencies (MHz)")
+		plt.ylabel(r"Coupling Sensitivity (1/DFSZ)")
+		plt.locator_params(axis='x', nbins=8)
+		plt.xticks(rotation=25)
+		plt.ticklabel_format(useOffset=False)
 		
 		#plot
 		plt.tight_layout()
@@ -60,10 +66,14 @@ class figures_class():
 		"""
 		data = self.grand_spectra_group['sensitivity_power'][...]
 		mask = np.isfinite(data)
-		reduced_data = data[mask]
-		domain = self.axion_frequencies[mask]
+		reduced_data = data[mask][self.RF_interference_mask]
+		domain = self.axion_frequencies_MHz[mask][self.RF_interference_mask]*10**-6
+		plt.locator_params(axis='x', nbins=8)
+		plt.xticks(rotation=25)
+		plt.ticklabel_format(useOffset=False)
+
 		plt.title("power sensitivity of run1a")
-		plt.xlabel("Axion Frequencies (Hz)")
+		plt.xlabel("Axion Frequencies (MHz)")
 		plt.ylabel(r"Power Sensitivity")
 		
 		
@@ -82,9 +92,9 @@ class figures_class():
 		data = self.grand_spectra_group['SNR'][...]
 		mask = np.isfinite(data)
 		reduced_data = data[mask]
-		domain = self.axion_frequencies[mask]
+		domain = self.axion_frequencies_MHz[mask]
 		plt.title("SNR of run1a")
-		plt.xlabel("Axion Frequencies (Hz)")
+		plt.xlabel("Axion Frequencies (MHz)")
 		plt.ylabel("SNR")
 		
 		
@@ -103,9 +113,9 @@ class figures_class():
 		data = self.grand_spectra_group['sensitivity_power'][...]
 		mask = np.isfinite(data)
 		reduced_data = data[mask]
-		domain = self.axion_frequencies[mask]
+		domain = self.axion_frequencies_MHz[mask]
 		plt.title("Sensitivity to Dark Matter density at DSFZ level")
-		plt.xlabel("Axion Frequencies (Hz)")
+		plt.xlabel("Axion Frequencies (MHz)")
 		plt.ylabel("Dark Matter Density Sensitivity")
 		
 		plt.tight_layout()
@@ -115,6 +125,24 @@ class figures_class():
 		if 'show' in list(kwargs.keys()) and kwargs['show']==True:
 			plt.show()
 		plt.clf()	
+	
+	def axion_fit_uncertainty(self, **kwargs):
+		data = self.grand_spectra_group['axion_fit_uncertainty'][...]
+		mask = np.isfinite(data)
+		reduced_data = data[mask]
+		domain = self.axion_frequencies_MHz[mask]
+		plt.title("Axion Fit Uncertainty")
+		plt.xlabel("Axion Frequencies (MHz)")
+		plt.ylabel(r"Uncertainty")
+		
+		plt.tight_layout()
+		plt.plot(domain, reduced_data)
+		plt.savefig(self.savefile + "Axion_fit_Uncertainty" + self.extension, dpi = self.dpi)
+		if 'show' in list(kwargs.keys()) and kwargs['show']:
+			plt.show()
+		plt.clf()
+		
+		
 	def time_v_freq(self, **kwargs):
 		"""
 		Plot the frequency scanned over time
@@ -177,7 +205,7 @@ class figures_class():
 		plt.axes().set_aspect('equal')
 		plt.yticks([])
 		
-		plt.legend(loc=1, prop={'size':self.legend_font_size})
+		#plt.legend(loc=1, prop={'size':self.legend_font_size})
 		plt.tight_layout()
 		plt.tick_params(axis='x', pad = self.xpad)
 

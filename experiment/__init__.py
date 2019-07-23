@@ -8,8 +8,8 @@ Creation Date: 10/26/18
 
 import sys
 sys.path.append("..")
-import experiment.calc_sys_temp_offline
-import experiment.get_squid_dataset
+import oo_analysis.experiment.calc_sys_temp_offline
+import oo_analysis.experiment.get_squid_dataset
 
 # get squid dataset
 def get_datasets(timestamps):

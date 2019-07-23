@@ -5,50 +5,53 @@ Created by: Erik Lentz and Modified by Shaun Fell
 Creation Date: 6/1/18
 """
 import sys; import os
-sys.path.append("../experiment")
-sys.path.append("..")
-from control.param_parser import parser
-from experiment.get_squid_dataset import get_squid_dataset
-from experiment.calc_sys_temp_offline import calc_sys_temp
+from oo_analysis.control.param_parser import parser
+from oo_analysis.experiment.get_squid_dataset import get_squid_dataset
+from oo_analysis.experiment.calc_sys_temp_offline import calc_sys_temp
 import time; import datetime
 import argparse
 import copy 
-from toolbox.plot_dataset import plotter
-from toolbox.freq_to_mass import freq_to_mass
-from analysis.synthetic_injection import axion_injector
-
-############# Argument parsing
-P = argparse.ArgumentParser(description="Main execution file for oo_analysis")
-P.add_argument('-t', '--timeit', action='store_true', default=False, help='Argument specifies whether to time all the subprocesses of the analysis')
-P.add_argument('-cgs', '--clear_grand_spectra', action='store_true', default=False, help="Argument specifies whether to delete the grand spectra and start from scratch. Default is False")
-P.add_argument('--start_scan', action='store', default = '', help="Argument specifies the starting scan number of the analysis. If not specified, starting number specified by job.param")
-P.add_argument('--end_scan', action='store', default = '', help="Argument specifies the ending scan number of the analysis. If not specified, ending number specified by job.param")
-P.add_argument('-p', '--make_plots', action='store', default=False, help="Argument specifies whether to generate plots or not after analysis is completed")
-
-args = P.parse_args()
-
-timeit = args.timeit
-reset = args.clear_grand_spectra
-start_scan = args.start_scan
-end_scan = args.end_scan
-make_plots = args.make_plots
-#############
+from oo_analysis.toolbox.plot_dataset import plotter
+from oo_analysis.toolbox.freq_to_mass import freq_to_mass
+from oo_analysis.analysis.synthetic_injection import axion_injector
+import urllib
+from pandas import isnull
+import numpy as np
+import pandas as pd
+import datetime as dt
 
 # create main structure
 class core_analysis():
-	def __init__(self, **kwargs):
+	
+	
+	def __init__(self, args, **kwargs):
         # get parameters
-		filename = "../job.param"  # from command line, nominally
-		params = parser(filename)
+		
+		current_dir = os.getcwd()
+		run_definitions_filename = current_dir + "/oo_analysis/job.param"  # from command line, nominally
+		axion_frequencies_filename = current_dir + "/oo_analysis/analysis/software_injection_frequencies.dat"
+		self.bad_scans_filename = current_dir + "/oo_analysis/analysis/bad_scans.dat"
+		self.output_file = current_dir + "/oo_analysis/output/grand_spectra.dat"
+		self.error_file = current_dir + "/oo_analysis/meta/error_log"
+		
+		params = parser(run_definitions_filename)
         # set switches of analysis
         # default
-        # from param file
-
-		if start_scan!='':
-			params['start_scan']=start_scan
-		if end_scan!='':
-			params['end_scan']=end_scan
 		
+        # from param file
+		
+		#parse command line arguments
+		timeit = args.timeit
+		reset = args.clear_grand_spectra
+		start_scan = args.start_scan
+		end_scan = args.end_scan
+		make_plots = args.make_plots
+		
+		#store defaults
+		params['start_scan']=start_scan
+		params['end_scan']=end_scan
+		
+		#add class attributes
 		for arg, val in kwargs.items():
 			if arg in params.keys():
 				params[str(arg)] = val
@@ -56,23 +59,24 @@ class core_analysis():
 		for key,value in params.items(): # for python 3.x
 			setattr(self,key,value)
 			
-			#find bad scans saved to file
-		self.bad_scans_file = open(str(params['bad_scans_file']))
+		#find bad scans saved to file
+		self.bad_scans_file = open(self.bad_scans_filename, 'r')
 		self.bad_scans = self.bad_scans_file.read().splitlines()
 		params['bad_scans'] = self.bad_scans	
 			
         # set data structures
-		import data.__init__ 
+		from oo_analysis.data import input, add_input
 		pulldata_start = time.time()
-		self.dig_dataset, self.h5py_file, self.no_axion_log, self.partitioned = data.__init__.input(params)
+		self.dig_dataset, self.h5py_file, self.no_axion_log, self.partitioned = input(params)
 		self.keys = [copy.deepcopy(i) for i in self.dig_dataset.keys() if i not in self.no_axion_log] #Was originally dig_dataset,but some digitizer logs didnt have associated axion logs.
 		pulldata_stop = time.time()
 		
 		
-		self.output_file = "../output/grand_spectra.dat"
 		print("Loading data successful. It took {0:0.3f} seconds. Beginning analysis of {1} scans".format((pulldata_stop-pulldata_start), len(self.keys)))
 		if self.partitioned:
 			print("Note: Dataset was partitioned")
+		
+		self.update_astronomical_tables()
 		if reset and 'grand_spectra_run1a' in self.h5py_file.keys():
 			del self.h5py_file['grand_spectra_run1a']	
         
@@ -85,16 +89,19 @@ class core_analysis():
 		self.axion_mass = {key: freq_to_mass(copy.deepcopy(self.mode_frequencies[key])*10**6) for key in self.keys} #axion mass in eV with corresponding frequency equal to mode frequency
 		self.fstart = {key: float(copy.deepcopy(self.dig_dataset[key].attrs["start_frequency"])) for key in self.keys} #starting frequencies of scans
 		self.fstop = {key: float(copy.deepcopy(self.dig_dataset[key].attrs["stop_frequency"])) for key in self.keys} #ending frequencies of scans
+		self.fres = {key: float(copy.deepcopy(self.dig_dataset[key].attrs['frequency_resolution'])) for key in self.keys}
 		self.Q = {key: float(copy.deepcopy(self.dig_dataset[key].attrs["Q"])) for key in self.keys} #quality factor during scan
 		self.notes = {key: copy.deepcopy(self.dig_dataset[key].attrs["notes"]) for key in self.keys} #notes attached to scan
+		self.errors = {key: copy.deepcopy(self.dig_dataset[key].attrs['errors']) for key in self.keys} #errors attached to scan
 
-		data.add_input(self.dig_dataset,self.Tsys,'Tsys')
-		
-		# Inject synthetic axion signals into datasets
-		axion_injector(self)
-		
+		add_input(self.dig_dataset,self.Tsys,'Tsys')
 		
 		# derive necessary digitization structures??
+		
+		#Import axion frequencies to inject
+		
+		with open(axion_frequencies_filename, 'r') as file:
+			self.axion_frequencies_to_inject = list(map(float, file.readlines()))
 		
 		# metadata (bad scans, etc.)
 
@@ -104,7 +111,16 @@ class core_analysis():
          'freq_low':644.9, 'freq_top':680.1,
          'notes_neq':("nan","filled_in_after_SAG"),
 		 'Q':10**6,
-		 'bad_logging': self.no_axion_log
+		 'bad_logging': self.no_axion_log,
+		 'errors': ("", 
+					'nan', 
+					np.nan,
+					' cannot get spectrum while acquiring',
+					' cannot get spectrum while acquiring ca',
+					' cannot start run, already acquiring',
+					' cannot start run, already acquiring ca',
+					'SetPowerupDefaultsPX4 in setup(): Phase'
+					) #This tuple of errors is ok. If scan has any of these errors, analysis will still be performed
 		 }
 		 
 		
@@ -120,31 +136,25 @@ class core_analysis():
 		try:
 			#Catch zero scan analysis
 			if len(self.keys)==0:
-				print("No scans to analysis")
+				print("No scans to analyze")
 				try:
 					sys.exit(0)
 				except SystemExit:
 					os._exit(0)
-			# sets all calculations in motion
+			
+			# set all calculations in motion
 			self.meta_analysis = [timeit]
-			"""
-			import back_sub.__init__
-			self = back_sub.__init__.BS(self)
-			self.bad_scan_criteria['background'] = 'background condition'
-			"""
+			
 			self.collect_bad_scans()
-			print("generating signals")
-			import signals
+			import oo_analysis.signals
 			self.signals_start = time.time()
-			self.signal_dataset = signals.generate(self)
+			self.signal_dataset = oo_analysis.signals.generate(self)
 			self.signals_stop=time.time()
 			
-			print("signal generating complete. Beginning Analysis")
-			import analysis
+			import oo_analysis.analysis
 			self.analysis_start=time.time()
-			self.grand_spectra_group, ncut = analysis.grand_spectra(self)
+			self.grand_spectra_group, ncut = oo_analysis.analysis.grand_spectra(self)
 			self.analysis_stop=time.time()
-			
 			
 			#import MCMC
 			# perform MCMC analysis
@@ -158,7 +168,7 @@ class core_analysis():
 		except (KeyError, TypeError, SyntaxError) as error:
 			self.h5py_file.close() #prevent corruption on break
 			print("Execution failed with error: \n {0}".format(error))
-			open('../meta/error_log', 'a+').write(str(time.time())+ "\n\n"+ str(error))
+			open(self.error_file, 'a+').write(str(time.time())+ "\n\n"+ str(error))
 			raise
 		except KeyboardInterrupt:
 			self.h5py_file.close()
@@ -169,9 +179,8 @@ class core_analysis():
 				os._exit(0)
 		finally:
 			#save analysis to disk and close out file
-			string=" \n Analysis of {0} scans took {1:0.3f} seconds. \n Of those scans, {2:d} were cut".format(len(self.keys),  self.analysis_stop-self.analysis_start, ncut)
+			string="Analysis of {0} scans took {1:0.3f} seconds. \tOf those scans, {2:d} were cut".format(len(self.keys),  self.analysis_stop-self.analysis_start, ncut)
 			print(string)
-			self.collect_bad_scans()
 			self.collect_meta_data()
 			self.output()
 			#self.generate_plots()
@@ -180,9 +189,9 @@ class core_analysis():
 			
 	def output(self):
 		# outputs data to local "./output/" directory
-		import data_management
-		print("\n\nWriting output to {0}".format(self.output_file))
-		data_management.write_out(self.grand_spectra_group,self.output_file)
+		import oo_analysis.data_management
+		print("\nWriting output to:\n\t {0}".format(self.output_file))
+		oo_analysis.data_management.write_out(self.grand_spectra_group,self.output_file)
 		return None
 		
 	def collect_bad_scans(self):
@@ -222,10 +231,20 @@ class core_analysis():
 						cut=True
 						cut_reason = "No associated axion log"
 						self.bad_scans.append(key)
+					elif self.errors[key] not in condition['errors'] and not pd.isnull(self.errors[key]):
+						cut = True
+						cut_reason = "See errors"
+						self.bad_scans.append(key)
+					
 					self.dig_dataset[key].attrs["cut"] = cut
 					self.dig_dataset[key].attrs["cut_reason"] = cut_reason
 					bad_scans_stop = time.time()
 					bad_scans_timer.append(bad_scans_stop-bad_scans_start)
+				elif key in self.bad_scans:
+					cut = True
+					cut_reason = "Check bad scans file"
+					self.dig_dataset[key].attrs['cut']=cut
+					self.dig_dataset[key].attrs['cut_reason']=cut_reason
 			except (RuntimeError, KeyError) as error:
 				print("\n\nError with scan {0}.".format(key))
 				open('../meta/error_log', 'a+').write(str(time.time())+ "\n\n"+ str(error))
@@ -287,35 +306,20 @@ class core_analysis():
 		fig_cl.sensitivity_power()
 		fig_cl.sensitivity_coupling()
 		fig_cl.SNR()
-		
-		
-		
-if __name__ in '__main__':
-	total_analysis_start = time.time()
-	x = core_analysis()
-	x.execute(timeit)
-	n=1
 	
-	while x.partitioned:
-		n+=1
-		reset=False
-		print("running next partition. (loop number: {0}) (partition [{1}, {2}])".format(n, max(map(int,x.keys))+1, x.end_scan))
-		params = {'start_scan': max(map(int,x.keys))+1, 'end_scan': x.end_scan}
-		x = core_analysis(**params)
-		x.execute(timeit)
-	if make_plots:
-		x.generate_plots()
-		
-	total_analysis_stop = time.time()
-	print("\n\n Entire analysis over all {0} partitions took {1:0.3f} seconds".format(n, total_analysis_stop-total_analysis_start))
-	
-		
-		
-		
-		
-		
-		
-		
-		
-		
+	def update_astronomical_tables(self):
+		curr_time = dt.datetime.now()
+		if "grand_spectra_run1a" in self.h5py_file.keys():
+			last_change = self.h5py_file['grand_spectra_run1a']['last_change'][0].decode()
+			if last_change!='':
+				last_change_obj = dt.datetime.strptime(last_change, '%Y-%m-%d')
+				if np.abs((curr_time-last_change_obj).total_seconds())/(60*60*24)>7.0: #if last execution was more than a week ago
+					try:
+						from astroplan import download_IERS_A
+						print("\nUpdating astronomical tables\n")
+						download_IERS_A()
+						return None
+					except urllib.error.URLError:
+						print("Cannot download astronomical data. Check internet connection or manually update datatables. Defaulting to stored data")
+			
 		

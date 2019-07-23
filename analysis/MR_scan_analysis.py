@@ -9,19 +9,23 @@ sys.path.append("..")
 
 import numpy
 from astropy import constants as const
-from astropy import units as u
-from signals.modulation import *
-from filters.backsub_filters_lib import RCHPF as reciprocated_clone_hpf
-from toolbox.DFT import DFT, IDFT
-from analysis.bin_consolidator import bin_consolidator
+from astropy import units as U
+import oo_analysis.filters.backsub_filters_lib as backsub_filters_lib
+from oo_analysis.filters.backsub_filters_lib import *
+from oo_analysis.toolbox.DFT import DFT, IDFT
+from oo_analysis.toolbox.signal_width import *
+from oo_analysis.analysis.bin_consolidator import bin_consolidator
 import h5py
-from toolbox.axion_power import axion_power
-from experiment.calc_sys_temp_offline import *
-from toolbox.lorentzian import lorentzian
+from oo_analysis.toolbox.axion_power import axion_power
+from oo_analysis.experiment.calc_sys_temp_offline import *
+from oo_analysis.toolbox.lorentzian import lorentzian
 import time
-import numba; from numba import jit
+import numba
+from numba import jit
 from scipy import fftpack
 from scipy.signal.signaltools import _centered
+from oo_analysis.analysis import synthetic_injection
+from oo_analysis.analysis.synthetic_injection import axion_injector
 
 
 def MR_scan_analysis(scan, **params):
@@ -34,6 +38,7 @@ def MR_scan_analysis(scan, **params):
 	
 	#declare variables to be used by single scan analysis
 	try:
+		
 		digitizer_scan = scan 
 		scan_number = params["scan_number"]
 		#Write exceptions here (reason not to include scans in Run1A)
@@ -47,15 +52,17 @@ def MR_scan_analysis(scan, **params):
 
 		binwidth = float(res)*10**6 # in Hz
 		
-		h = const.h.to(U.eV*u.s).value #plancks const eV*s
-		k = const.k_B.to(U.J/U.Kelvin).value #Boltzmanns constant J/K
-		Tsys = params["Tsys"] #calculate the system temperature
-		power_johnson = binwidth*k*Tsys
+		
 				
 		modulation_type = params["pec_vel"]
 		signal_shape = params["signal_dataset"][scan_number]['signal']
-		
+		signal_width_Hz = calc_signal_width(signal_shape)*binwidth
 		data = digitizer_scan[...]
+		
+		h = const.h.to(U.eV*U.s).value #plancks const eV*s
+		k = const.k_B.to(U.J/U.Kelvin).value #Boltzmanns constant J/K
+		Tsys = params["Tsys"] #calculate the system temperature
+		power_johnson = signal_width_Hz*k*Tsys #johnson noise power
 		
 		scan_length = len(freqs)
 		middlefreqpos = int(numpy.floor(scan_length/2))
@@ -73,39 +80,38 @@ def MR_scan_analysis(scan, **params):
 		
 		#Calculate average power deposited by axion
 		axion_power_start = time.time()
-		dfszaxion = axion_power(params["axion_scan"],axion_RMF, nbins=nbins, res=res)
+		dfszaxion = axion_power(params["axion_scan"],axion_RMF)
 		axion_power_stop = time.time()
-		#print("dfszaxion", dfszaxion)
+		
 	except SyntaxError as error:
 		print("MR_scan_analysis failed at scan {0} with error: \n {1}".format(scan_number, error))
 		raise
 	
 	#begin signal scan analysis
-	try:
-		#Calculate boosted signal
-		modulation_start = time.time()
-		mod_class = modulation()
-		kwargs = {'resolution':binwidth}
-		modulation_stop = time.time()
-		
+	try:		
 		axblank = numpy.empty_like(signal_shape)
 		DFSZshape = signal_shape*dfszaxion
 
 		#Remove Receiver response from scan
 		BS_start = time.time()
-		try:
-			copies=params["filter_params"][1]
-			window = params['filter_params'][0]
-			filter, errors = reciprocated_clone_hpf(data, window, copies, False, **params['submeta'])
-			filtered_data = filter['filtereddata']
-			submeta = filter['meta']
-			#print("copies", copies, "\n window", window, "\n filtered_data", filtered_data)
-			if errors['maxed_filter_size']:
-				with open('../meta/BS_errors.txt', 'a+') as f:
-					f.write("Background subtraction filter size maxed out with scan {0} \n".format(scan_number))
-		except TypeError as error:
-			raise
-			#raise Exception("Error: Invalid data type for scan {0}. Type {1} not accepted".format(scan_number, type(data)))
+
+		filter_function = getattr(backsub_filters_lib, params['filter'])
+		data[0] = np.mean([data[1], data[2], data[3]]) # Some spectra have odd behavior at beginning of scan, i.e. a single downward spike at the beginning position. I just set a default value
+		filtered_dict = filter_function(data, **{**params['filter_params'], **params})
+		filtered_data = filtered_dict['filtereddata']
+	
+		#Inject artificial axion
+		
+		params['fstart'] = fstart
+		params['fstop'] = fstop
+		params['fres'] = res
+		
+		#Inject software-generated axion signals
+		synthetic_injector = axion_injector(digitizer_scan, filter_shape=filtered_dict['background'].real, **params)
+		data, SIA_meta = synthetic_injector.inject_signal()
+		filtered_dict = filter_function(data, **params['filter_params'])
+		filtered_data = filtered_dict['filtereddata']
+
 		BS_stop = time.time()
 		
 		consolidation_start = time.time()
@@ -130,11 +136,17 @@ def MR_scan_analysis(scan, **params):
 		#Genereate bin-wise scan stats assuming all power in single bin
 		bin_stats_start = time.time()
 		sigma = numpy.std(deltas)
-		sigma_w = power_johnson*(binwidth*int_time)**(-1/2)
+		sigma_w = power_johnson*(signal_width_Hz*int_time)**(-1/2)
 		power_deltas = power_johnson*deltas
 		nscans = lorentzian_profile
 		SNR = (axion_power_excess_watts/sigma_w)
+		if (SNR>20).any():
+			print("SNR for scan number {0} is above 20".format(scan_number))
+	
+		
+		
 		bin_stats_stop = time.time()
+
 		
 		
 		chi_squared_start = time.time()
@@ -169,9 +181,10 @@ def MR_scan_analysis(scan, **params):
 		print("\n\nError with scan {0} in single scan analysis script.".format(scan_number))
 		open('../meta/error_log', 'a+').write(str(time.time())+ "\n\n"+ str(error))
 		raise
+	
 		
 		
-	if submeta['timeit']:
+	if params['submeta']['timeit']:
 		submeta = params['submeta']
 		submeta['constants'].append(constants_stop - constants_start)
 		submeta['axion_power'].append(axion_power_stop - axion_power_start)
@@ -201,7 +214,8 @@ def MR_scan_analysis(scan, **params):
 				'sigma':sigma,
 				'start_frequency': freqs[0]*10**6,
 				'middle_frequency':middlefreq*10**6,
-				'axion_frequencies':axion_rmfs #in Hz
+				'axion_frequencies':axion_rmfs, #in Hz
+				'software_injected_axion_properties':SIA_meta
 				}
 	return results
 
@@ -239,7 +253,7 @@ def chi_squared(power_deltas, axion_signal, cavity_lorentzian, noise_power, conv
 	else:
 		cc = kwargs['cc']
 	if 'cl_coeff' not in kwargs:
-		cl_coeff = 1.64485 #90% confidence interval
+		cl_coeff = 1.644853 # For 90% Confidence interval, set z = 1.644853  For 95% C.I., set z = 1.959964
 	else:
 		cl_coef = kwargs['cl_coeff']
 	pad_len = len(axion_signal)

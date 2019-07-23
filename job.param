@@ -8,23 +8,19 @@
 #Minimum digitizer number = 388518
 #Maximum digitizer number = 561150
 
-signal='SHM'
+signal='axionDM_w_baryons'
 pec_vel='earth rotation'
 filter='RCHPF'
-filter_params=[10,5]
+filter_params={'npairs':5}
 nbins=256
 
 pull_data='true'
 start_scan=388518
 end_scan=561150
-bad_scans_file="../bad_scans.param"
 restype="MR"
+partition=100000
 
 scan_crit=""
 temp='alg1'
 stat_interp='chi2'
 parallel='GPU'
-
-#axion specific parameters for injection
-#Frequencies in MHz
-#axion_frequencies = []

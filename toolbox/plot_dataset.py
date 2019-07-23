@@ -3,10 +3,11 @@ import numpy
 import h5py
 import warnings
 warnings.filterwarnings("ignore")
-def plotter(scan_number_or_array, savedir = None, show=False, **kwargs):
+def plotter(scan_number_or_array, savedir = None, show=False, clf=True, **kwargs):
 	#retrieve data
 	dpi=1000
-	plt.clf()
+	if clf:
+		plt.clf()
 	whatplot = scan_number_or_array
 	if isinstance(whatplot, int):
 		scan_number = whatplot
@@ -130,11 +131,11 @@ def plotter(scan_number_or_array, savedir = None, show=False, **kwargs):
 					xdata = kwargs['data'][0]
 					ydata = kwargs['data'][1]
 					
-			plt.plot(numpy.arange(len(whatplot)), list(map(abs, whatplot)))
+			plt.plot(numpy.arange(len(whatplot)), whatplot)
 
 			if savedir!=None:
 				plt.savefig(savedir, dpi=dpi)
 			else:
 				plt.show()
-	
-	plt.clf()
+	if clf:
+		plt.clf()

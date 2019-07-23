@@ -1,9 +1,7 @@
-import sys; sys.path.append('..')
 import numpy as np
-import toolbox.lorentzian
-from toolbox.lorentzian import lorentzian_value
+from oo_analysis.toolbox.lorentzian import lorentzian_value
 
-def axion_power(axion_dataset, frequency, form_factor=0.4, axion_coupling=0.36, halo_density=0.45, nbins=2**8, res=100):
+def axion_power(axion_dataset, frequency, form_factor=0.4, axion_coupling=0.36, halo_density=0.45):
 	#Halo density in Gev/(c^2 cm^3)
 	#frequency in Hz
 		
@@ -22,7 +20,7 @@ def axion_power(axion_dataset, frequency, form_factor=0.4, axion_coupling=0.36, 
 	
 	#print("\n\n B field", B, "Lorentzian value", l_value)
 	
-	total_power = (2.09*10**(-22))*(vol/220)*((B/7.6)**2)*form_factor*((axion_coupling/0.36)**2)*(halo_density/0.45)*(res_freq/(750*10**6))*(q/70000)*l_value
+	total_power = (2.09*10**(-22))*(vol/220)*((B/7.6)**2)*form_factor*((axion_coupling/0.36)**2)*(halo_density/0.45)*(res_freq/(750*10**6))*(q/70000)
 	
 	return total_power
 	

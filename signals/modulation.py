@@ -4,7 +4,7 @@ modulation.py: methods for bringing axion spectra into the lab reference frame
 Created by: Erik Lentz
 Creation Date: 6/1/18
 """
-import numpy as np
+import numpy as np; import numpy
 from astropy import constants as Cnsts
 from astropy import units as U
 from datetime import datetime as dt
@@ -12,8 +12,8 @@ from dateutil.parser import parse
 import pytz
 import sys
 sys.path.append("..")
-import toolbox.coord_transform as tf_lib
-from signals.signal_lib import signal
+import oo_analysis.toolbox.coord_transform as tf_lib
+from oo_analysis.signals.signal_lib import signal
 import time
 
 class modulation():
@@ -40,7 +40,7 @@ class modulation():
 		scans = default["dig_dataset"]
 		
 		sig_mod_list_start = time.time()
-		self.mod_vels = self.modulate(modulation_type, timestamps) #dictionary of total experiment velocity around galactic center keyed by timestamp
+		self.mod_vels = self.modulate(modulation_type, timestamps, shape_model) #dictionary of total experiment velocity around galactic center keyed by timestamp
 		sig_mod_list_stop = time.time()
 		
 
@@ -52,13 +52,32 @@ class modulation():
 				
 		signals = {}
 		timer = []
-		for key in self.keys:
+		if isinstance(self.keys, list) or isinstance(self.keys, numpy.ndarray) or isinstance(self.keys, dict):
+			counter = 1
+			N_iter = len(self.keys)
+			for key in self.keys:
+				start = time.time()
+				timestamp = timestamps[key]
+				if not isinstance(axion_mass, float):
+					a_mass = axion_mass[key]
+				else:
+					a_mass = axion_mass
+				signals[key] = self.modulatedsignal(modulation_type, timestamp, shape_model, a_mass, self.mod_vels[timestamp], **secondary)
+				if ('SIA',True) not in list(self.__dict__.items()):
+					print("generating signals ({0} % complete) \r".format((counter/N_iter)*100), end='')
+				counter+=1
+				stop = time.time()
+				timer.append(stop-start)
+				
+		else:
 			start = time.time()
-			timestamp = timestamps[key]
-			signals[key] = self.modulatedsignal(modulation_type, timestamp, shape_model, axion_mass[key], self.mod_vels[timestamp], **secondary)
+			timestamp = timestamps
+			a_mass = axion_mass
+			signals[key] = self.modulatedsignal(modulation_type, timestamp, shape_model, a_mass, self.mod_vels[timestamp], **secondary)
+			print("Signal generation complete \r", end='')
 			stop = time.time()
 			timer.append(stop-start)
-		
+	
 		if self.meta_analysis[0]:
 			#Generating modulated signal time
 			sig_mod_avg = sum(timer)/len(timer)
@@ -84,22 +103,33 @@ class modulation():
 	# methods for incorporating several levels of peculiar velocities and other
 	#modulating effects
 	
-	def modulate(self,modulation_type, timestamp):
+	def modulate(self,modulation_type, timestamp, shape_model):
 
 		#vt_orbit = vel_orbit["vt"]
 		#vt_rotation = vel_rotation["vt"]
 
 		if modulation_type == None or modulation_type =="None":
 			modulation_type = "solar"
-
-		if modulation_type == "solar":
-			return tf_lib.transformer().solar_vel_GalacticFrame()
-		elif modulation_type=="earth orbit":
-			return tf_lib.transformer().earth_vel_GalacticFrame(timestamp)
-		elif modulation_type=="earth rotation":
-			return tf_lib.transformer().experiment_vel_GalacticFrame(timestamp)
+		
+		if shape_model!="axionDM_w_baryons":
+			if modulation_type == "solar":
+				return tf_lib.transformer().solar_vel_GalacticFrame(timestamp)
+			elif modulation_type=="earth orbit":
+				return tf_lib.transformer().earth_vel_GalacticFrame(timestamp)
+			elif modulation_type=="earth rotation":
+				return tf_lib.transformer().experiment_vel_GalacticFrame(timestamp)
+			else:
+				return "Error: modulation type not recognized"
 		else:
-			return "Error: modulation type not recognized"
+			solar = tf_lib.transformer().solar_vel_GalacticFrame(timestamp)
+			if modulation_type=="solar":
+				return {time: [0,0,0] for time in timestamp}
+			elif modulation_type=='earth orbit':
+				earth_vel = tf_lib.transformer().earth_vel_GalacticFrame(timestamp)
+				return {key: np.array(earth_vel[key]) - np.array(solar.get(key,0)) for key in list(solar.keys())}
+			elif modulation_type=='earth rotation':
+				experiment_vel = tf_lib.transformer().experiment_vel_GalacticFrame(timestamp)
+				return {key: np.array(experiment_vel[key]) - np.array(solar.get(key,0)) for key in list(solar.keys())}
 
 	def modulatedsignal(self, modulation_type, timestamp, shape_model, axion_mass, vel_mod, **kwargs):
 		"""
@@ -150,7 +180,7 @@ class modulation():
 		m = axion_mass # axion mass in eV
 		bin_width = float(resolution) #size of bins in hZ
 		RMF = float(m/h) # Rest mass frequency in hZ
-		cutoffarea = 0.99
+		cutoffarea = 0.92
 		
 
 		signal_cl = signal(self.__dict__)
@@ -172,7 +202,7 @@ class modulation():
 		if shape_model == "axionDM_w_baryons":
 			while sumbins<cutoffarea:
 				scanfreq = float(startfreq + (i)*(bin_width/3))*10**(-6)
-				binsize.append(signal_cl.axionDM_w_baryons(vel_mod, vsol, m, scanfreq)*(bin_width/3))
+				binsize.append((signal_cl.axionDM_w_baryons(vel_mod, vsol, m, scanfreq)*(bin_width/3))[0])
 				if ((i+1)/3) == np.floor((i+1)/3) and i>0:
 					binned_signal.append(binsize[int(i-2)] + binsize[int(i-1)] + binsize[int(i)])
 					sumbins = sumbins + binned_signal[int(i/3)]
@@ -264,8 +294,12 @@ class modulation():
 			finalsignal = binned_signal
 
 		#collect important properties and values
+		if len(finalsignal)>100:
+			finalsignal = finalsignal[:100]
+			
+		
+		
 		info = {'rest mass frequency':RMF, 'shape': shape_model, 'signal': np.asarray(finalsignal), 'freqs':np.asarray(startingfreqs)}
-
 		#self.sig_mod_list.append(mod_vel_stop - mod_vel_start)
 		self.sig_integ8_list.append(integrate_signal_stop-integrate_signal_start)
 		return info

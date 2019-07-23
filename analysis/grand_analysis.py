@@ -3,12 +3,9 @@ grand_analysis.py: generates grand spectraum for a number of significant figures
 
 Created By: Erik Lentz
 """
-import sys
-sys.path.append("..")
-import analysis.scan_analysis 
-import analysis.coaddition; from analysis.coaddition import add_subtract_scan, scan_cl
+from oo_analysis.analysis.coaddition import add_subtract_scan, scan_cl
 import h5py
-from analysis.scan_analysis import analysis
+from oo_analysis.analysis.scan_analysis import analysis
 import time
 # add scan results to grand spectra
 
@@ -17,19 +14,19 @@ import time
 
 
 	
-class analyser(object):
+class analyzer(object):
 	
 	def __init__(self, object):
 		self.file = object.h5py_file
 		#pull grand spectra or create it. Then pull data group
 		try:
 			grand_spectra_start = time.time()
+			
 			if "grand_spectra_run1a" in self.file.keys():
 				self.grand_spectra_group = self.file["grand_spectra_run1a"]
 			else:
-				#self.grand_spectra = self.file.create_dataset("grand_spectra_run1a", data = [], dtype=float, chunks = True, maxshape=None)
 				self.grand_spectra_group = self.file.create_group("grand_spectra_run1a")
-				from toolbox.grand_spectra_init import initialization
+				from oo_analysis.toolbox.grand_spectra_init import initialization
 				initialization(self.grand_spectra_group)
 			grand_spectra_stop = time.time()
 		except KeyError as error:
@@ -71,71 +68,81 @@ class analyser(object):
 		grand_analysis_class = scan_cl('Null', {'Null': 'Null'}, chunk = self.grand_spectra_group, op='Null', **{'submeta':submeta})
 		
 		#begin iteration
+		counter=1
+		N_iter = len(self.keys)
 		for key in self.keys:
 			try:
 				#Run single scan analysis
 				scan = self.dig_dataset[key]
-				scanparam_keys = ['restype', 'notes', 'nbins']
-				modparam_keys = ['pec_vel', 'signal_dataset', 'filter_params']
-				
-				scanparams = {key: getattr(self, key) for key in scanparam_keys}
-				modparams = {key: getattr(self, key) for key in modparam_keys}
-				Tsys = {'Tsys': self.Tsys[key]}
-				scan_num = {'scan_number':key}
-				axion_scan = {'axion_scan': self.dig_dataset[key]}
-				
-				params = {**scanparams, **modparams, **Tsys, **scan_num, **axion_scan, "submeta":submeta}
-				
-				#Run single analysis routine
-				analysis_start = time.time()
-				self.analysis_results[key] =  analysis(scan, **params)
-				analysis_stop = time.time()
-				
-				analysis_timer.append(analysis_stop - analysis_start)
-				#cycle over scans and Make cuts on data
-				#if deltas dispersion is factor of 3 larger than radiometer equation, cut it.
-				#Radiometer dispersion: Tsys/root(B*t) B==bandwidth, t==integration time
-				scan = self.dig_dataset[key]
-				int_time = float(scan.attrs['integration_time']) #second
-				bandwidth = float(scan.attrs["frequency_resolution"])*10**6 #Hz
-				
-				radiometer_dispersion = 1/((bandwidth*int_time)**(0.5))
-				scan_dispersion = self.analysis_results[key]["sigma"]
-				
-				#print("\n\nRadiometer: ", radiometer_dispersion, "\nScan:", scan_dispersion, "\n fractional: ", scan_dispersion/radiometer_dispersion)
-				cut = False
-				cut_reason = ""
-				if scan_dispersion>3*radiometer_dispersion:
-					cut = True
-					cut_reason = "Dispersion compared to radiometer dispersion. Too large"
-					self.core_analysis.bad_scans.append(key)
-				if scan_dispersion<0.3*radiometer_dispersion:
-					cut = True
-					cut_reason = "Dispersion compared to radiometer dispersion. Too Small"
-					self.core_analysis.bad_scans.append(key)
-					print("Background subtraction failed for scan {0}".format(key))
-				
 				if not scan.attrs['cut']:
-					scan.attrs["cut"] = cut
-					scan.attrs["cut_reason"] = cut_reason
+					scanparam_keys = ['restype', 'notes', 'nbins', 'axion_frequencies_to_inject']
+					modparam_keys = ['pec_vel', 'signal_dataset', 'filter', 'filter_params', 'signal']
 					
-				
-				#add remaining scans to grand_spectra via coaddition
-				coaddition_start = time.time()
-				if not scan.attrs['cut']:
-					add_subtract_scan('add', self.analysis_results[key], grand_analysis_class, key, self.grand_spectra_group, **{'submeta':submeta})
-				
-				elif scan.attrs['cut'] and scan.attrs['cut_reason']!="scan outside 645 to 685 MHz range":
-					self.ncut += 1
-					add_subtract_scan('subtract', self.analysis_results[key], grand_analysis_class, key, self.grand_spectra_group, **{'submeta':submeta})
-				coaddition_stop = time.time()
-				coaddition_timer.append(coaddition_stop - coaddition_start)
-				
+					scanparams = {key: getattr(self, key) for key in scanparam_keys}
+					modparams = {key: getattr(self, key) for key in modparam_keys}
+					Tsys = {'Tsys': self.Tsys[key]}
+					scan_num = {'scan_number':key}
+					axion_scan = {'axion_scan': self.dig_dataset[key]}
+					
+					params = {**scanparams, **modparams, **Tsys, **scan_num, **axion_scan, "submeta":submeta}
+					
+					#Run single analysis routine
+					analysis_start = time.time()
+					self.analysis_results[key] =  analysis(scan, **params)
+					analysis_stop = time.time()
+					
+					analysis_timer.append(analysis_stop - analysis_start)
+					
+					#cycle over scans and make cuts on data
+					scan = self.dig_dataset[key]
+					int_time = float(scan.attrs['integration_time']) #second
+					bandwidth = float(scan.attrs["frequency_resolution"])*10**6 #Hz
+					
+					#Radiometer dispersion: Tsys/root(B*t) B==bandwidth, t==integration time
+					radiometer_dispersion = 1/((bandwidth*int_time)**(0.5))
+					scan_dispersion = self.analysis_results[key]["sigma"]
+					
+					cut = False
+					cut_reason = ""
+					
+					if scan_dispersion>3*radiometer_dispersion: #if deltas dispersion is factor of 3 larger than radiometer equation, cut it.
+						cut = True
+						cut_reason = "Dispersion compared to radiometer dispersion. Too large"
+						self.core_analysis.bad_scans.append(key)
+					elif scan_dispersion<0.3*radiometer_dispersion:
+						cut = True
+						cut_reason = "Dispersion compared to radiometer dispersion. Too Small"
+						self.core_analysis.bad_scans.append(key)
+						print("Background subtraction failed for scan {0}".format(key))
+					else:
+						pass
+						
+					#add remaining scans to grand_spectra via coaddition
+					coaddition_start = time.time()
+					if not scan.attrs['cut']:
+						add_subtract_scan('add', self.analysis_results[key], grand_analysis_class, key, self.grand_spectra_group, **{'submeta':submeta})
+					
+					elif scan.attrs['cut']:
+						self.ncut += 1
+						add_subtract_scan('subtract', self.analysis_results[key], grand_analysis_class, key, self.grand_spectra_group, **{'submeta':submeta})
+					
+					print("\rPerforming Analysis ( {0}% Complete ) \r".format((counter/N_iter)*100), end='')
+					counter+=1
+					coaddition_stop = time.time()
+					coaddition_timer.append(coaddition_stop - coaddition_start)
+					
 			except (KeyError, MemoryError, IndexError) as error:
 				print("Error at scan {0}. Saving to error log".format(key))
 				open('../meta/error_log', 'a+').write(str(time.time())+ "\n\n"+ str(error))
 				self.file.close()
 				raise
+			except KeyboardInterrupt:
+				self.file.close()
+				print("Interrupted")
+				try:
+					sys.exit(0)
+				except SystemExit:
+					os._exit(0)
 		iteration_stop = time.time()
 		
 		if self.meta_analysis[0]:

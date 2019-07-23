@@ -21,5 +21,6 @@ def lorentzian(Q, resonant_frequency, starting_freq, stoping_freq, resolution):
 def lorentzian_value(Q, resonant_frequency, freq):
 	
 	l = lambda Q, center, f: 1/(1 + 4*((f-center)**2)*(Q**2/center**2))
+
 	return l(Q, resonant_frequency, freq)
 

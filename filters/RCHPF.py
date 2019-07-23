@@ -1,7 +1,6 @@
 ##System management
 import os
 import sys
-sys.path.append("..")
 ##
 
 
@@ -15,8 +14,8 @@ import copy
 ##
 
 ##Background subtraction specific packages
-import filters.backsub_filters_lib
-from filters.backsub_filters_lib import SG, poly_fit #Savitzky Golay Filter as 6 order polynomial fit
+#import filters.backsub_filters_lib
+#from filters.backsub_filters_lib import SG, poly_fit #Savitzky Golay Filter as 6 order polynomial fit
 from scipy.stats import variation #Coefficient of Variation
 from scipy.optimize import curve_fit
 from scipy.signal import find_peaks
@@ -30,15 +29,12 @@ from reikna.fft import FFT as fftcl
 ##
 
 ## Import packages for fourier transforms
-from toolbox.DFT import DFT, IDFT
+from oo_analysis.toolbox.DFT import DFT, IDFT
 ##
 
-##Meta Analysis
-import time
-##
 
 ##Plotting software
-from toolbox.plot_dataset import plotter
+from oo_analysis.toolbox.plot_dataset import plotter
 import matplotlib.pyplot as plt
 import pandas as pd
 
@@ -47,15 +43,17 @@ import pandas as pd
 
 os.environ["PYOPENCL_COMPILER_OUTPUT"] = "1" #Output pyopencl compiler messages
 	
-def reciprocated_clone_hpf(data, npairs, testing=False, testing_subdir = "", scan_number="",iter = '', **meta):
+def reciprocated_clone_hpf(data, npairs, return_parsed_data = False, sigma=None, testing=False, testing_subdir = "", scan_number="",iter = '', pure_noise = [], **kwargs):
 	"""
 	Parameters:
 				data: can be array of data or a digitizer number
 				npairs: number of clones to make when generating large fourier domain
-				(removed)ch: --OBSOLETE-- specify channel data was taken on.
 				testing: Used for testing... Plots major calculations in the script of meta analysis if True
-				scan_number: used for testing. Specifies scan number in title when saving plots
+				scan_num: used for testing. Specifies scan number in title when saving plots
+				iter: Also used for testing. String the specifies what loop number the background subtraction analysis is on
+				pure_noise: Also used for testing. Array containing just the noise and the signal of the artifical scan.
 	"""
+	
 	ORIG = copy.deepcopy(data)
 	avail_types = [numpy.ndarray, numpy.arange(1), 1, 1.]
 	for i in avail_types:
@@ -67,38 +65,31 @@ def reciprocated_clone_hpf(data, npairs, testing=False, testing_subdir = "", sca
 	
 	#if (numpy.mean(data)-data[0])>numpy.std(data): 
 	ORIG[0]=numpy.mean([ORIG[1], ORIG[2], ORIG[3]]) # Some spectra have odd behavior at beginning of scan, i.e. a single downward spike at the beginning position. I just set a default value
-	
 	while len(ORIG)<256: #For some reason, some datasets dont have 2**8 elements.
 		ORIG = numpy.append(ORIG[-1], ORIG)
 	
-	reflecting_time_start = time.time()
 	sz = len(ORIG)
 	n = npairs # Specifies number of concatenated datasets
-	reflecting_time_stop = time.time()
 	
 	#Generate statistics about the data set and define variables and functions
 	
 		#reflects the dataset about the center and operates on it to sequence datasets without discontinuities 
 
-	calculating_tophat_size_start = time.time()
-	reciprocating_array_start = time.time()
-
-	RECIP, lin_fit_beg, lin_fit_end = gen_recip_copy(ORIG)
-	reciprocating_array_stop = time.time()
 	
 	#Construct large array consisting of reflected and nonreflected data_array
-	generating_large_array_start = time.time()
-	appended_ORIG = [*RECIP, *ORIG]*(n+1)
+	appended_ORIG = gen_recip_copy(ORIG,n)
 	szA = len(appended_ORIG) # Find length of large array
-	generating_large_array_stop = time.time()
 
-	sigma = calc_filter_size(ORIG, appended_ORIG)
-	if sigma>2**8:
+	if sigma==None:
+		sigma = calc_filter_size(ORIG, appended_ORIG,n)
+	
+	"""
+	if sigma>300: #Arbitrary cut-off to prevent poor filtering
 		print("Ceiling of reciprocated clone hpf reached (sigma={0:0.5f})".format(sigma))
+		with open('../meta/BS_errors.txt', 'a+') as f:
+			f.write("Background subtraction filter size maxed out with scan {0} (sigma={1:0.5f})\n".format(scan_number, sigma))
 		sigma=2**8
-		errors['maxed_filter_size'] = True
-		
-	calculating_tophat_size_stop = time.time()
+	"""
 		
 
 	"""
@@ -108,28 +99,21 @@ def reciprocated_clone_hpf(data, npairs, testing=False, testing_subdir = "", sca
 		tophat[szA-i-1] = 1
 	"""
 	
-	generating_tophat_start = time.time()
 	#experimental tophat
 	tophat_func = lambda x, sigma, size: 1/(1 + (x/sigma)**12) + 1/(1 + ((x-size)/sigma)**12)
 	tophat = tophat_func(numpy.arange(szA), sigma, szA)
-	generating_tophat_stop = time.time()
 	
 	
 	# Fourier transform large array
-	fft_and_highpassfilter_start = time.time()
 	fft_appended_ORIG = DFT(appended_ORIG) 
 	reduced_fft_appended_ORIG = tophat*fft_appended_ORIG # Isolate lower frequencies
-	fft_and_highpassfilter_stop = time.time()
 	
 	
 	# Inverse Fourier Transform
-	ifft_start = time.time()
 	BS_fft_appended_ORIG = IDFT(reduced_fft_appended_ORIG)
-	ifft_stop = time.time()
 	
 	#pick out the original signal
 	
-	picking_og_signal_start = time.time()
 	pickORIG = [0]*len(ORIG)
 	if n%2==1: #calculate which part of the array to pick out. if n is odd, pick out the original scan to the left of the center of the array. if n is even, pick out the middle
 		l=n
@@ -138,59 +122,69 @@ def reciprocated_clone_hpf(data, npairs, testing=False, testing_subdir = "", sca
 		
 	for i in range(len(ORIG)):
 		pickORIG[i] = BS_fft_appended_ORIG[(l*len(ORIG)+i)]
-	picking_og_signal_stop = time.time()
-	
-	dividing_structure_start = time.time()
+
 	ORIG = numpy.array(ORIG) #Convert back into an array
 	pickORIG =  numpy.array(pickORIG)
 	filtereddata = ORIG/pickORIG # Divide out low freq. structure from data.
-	dividing_structure_stop = time.time()
 	
 	if testing:
-		import datetime as dt
-		date = "(" + dt.datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + ")"
+		date = ""
 		starting_string=""
 		if scan_number!="":
 			starting_string = '('+str(scan_number)+')_'
 		sdir = "D:/Users/shaun/Documents/Coding Software/Python/Scripts/New-Analysis-Scheme/oo_analysis/figures/Background_sub_testing/rchpf_testing/"+ str(testing_subdir)+starting_string
 		format = '.pdf'
-		n="("+str(iter)+")"
+		n=''
+		if iter!='':
+			n="("+str(iter)+")"
 		ylim = (min(ORIG), max(ORIG)*(1+1/24))
-		plotter(ORIG.real,title = n+'data', ylimits=ylim, savedir = sdir+n+'data' + date +format); 
-		plotter(ORIG[::-1].real, title = n+'refl_data', ylimits=ylim, savedir = sdir+n+'refl_data' + date+format); 
-		plotter(RECIP.real, title=n+'recip_data', savedir = sdir+n+'recip_datas' + date+format); 
-		plotter(appended_ORIG, title=n+'large_append_array', savedir = sdir+n+'large_append_array' + date+format); 
-		plotter(fft_appended_ORIG.real, title = n+'fft-ed large append array' + "With sigma = {0}".format(sigma), savedir = sdir+n+'fft-ed_large_appended_array' + date+format); 
-		plotter(BS_fft_appended_ORIG.real, title = n+'inverse_fft-ed_append_array', savedir = sdir+n+'inverse_fft-ed_append array' + date+format);
-		plotter(pickORIG.real, title = n+'recovered data from ifft-ed array', savedir = sdir+n+'recovered_data_from_ifft-ed_array' + date+format)
-		plotter(filtereddata.real, title = n+'filtered data ' + 'sigma={0:0.3f}'.format(sigma), ylimits = (min(filtereddata), max(filtereddata)*(1+1/24)), savedir = sdir+n+'filtered_data' + date+format)
-		plotter(tophat, title = n+'filter function' ,savedir = sdir + n+"filter_function" + date+format)
+		plt.figure(figsize=(6,8))
+		
+		plt.subplot(511)
+		plt.title('data')
+		plt.ylim(*ylim)
+		plt.plot(ORIG.real)
+		plt.plot(pickORIG.real)
+		
+		plt.subplot(512)
+		plt.title('filtered data ' + 'sigma={0:0.3f}'.format(sigma))
+		plt.ylim(min(filtereddata), max(filtereddata)*(1+1/24))
+		plt.plot(filtereddata.real)
+		
+		if pure_noise!=[]:
+			plt.subplot(515)
+			plt.title("original noise and signal")
+			plt.ylim(min(filtereddata), max(filtereddata)*(1+1/24))
+			plt.plot(pure_noise-numpy.mean(pure_noise)+1.0)
+		
+		plt.subplot(513)
+		plt.title('Autocorrelation of filtered data')
+		plt.plot(numpy.correlate(filtereddata.real-numpy.mean(filtereddata.real), filtereddata.real-numpy.mean(filtereddata.real), 'full')[len(filtereddata)-1:])
+		
+		
+		plt.subplot(514)
+		plt.title("Autocorrelation of unfiltered data")
+		plt.plot(numpy.correlate(ORIG.real - numpy.mean(ORIG.real), ORIG.real - numpy.mean(ORIG.real), 'full')[len(ORIG.real)-1:])
+		plt.tight_layout()
+		plt.savefig(sdir+"sig_filtered_autocorr_collage/"+n+"sig_filtered_autocorr_collage" + date + format)
+		plt.clf()
+		
+		
+		plotter(ORIG[::-1].real, title = n+'refl_data', ylimits=ylim, savedir = sdir+'refl_data/' + n + 'refl_data' + date+format); 
+		#plotter(RECIP.real, title=n+'recip_data', savedir = sdir+n+'recip_datas' + date+format); 
+		plotter(appended_ORIG, title=n+'large_append_array', savedir = sdir+'large_append_array/'+n+'large_append_array' + date+format); 
+		plotter(fft_appended_ORIG.real, title = n+'fft-ed large append array' + "With sigma = {0}".format(sigma), savedir = sdir+'fft-ed_large_appended_array/'+n+'fft-ed_large_appended_array' + date+format); 
+		plotter(BS_fft_appended_ORIG.real, title = n+'inverse_fft-ed_append_array', savedir = sdir+'inverse_fft-ed_append_array/'+n+'inverse_fft-ed_append array' + date+format);
+		plotter(tophat, title = n+'filter function' ,savedir = sdir + "filter_function/"+n+"filter_function" + date+format)
+		plt.clf()
 	
-	#meta analysis
-	if 'timeit' in meta.keys():
-		if meta['timeit']:
-			reflecting_time = reflecting_time_stop - reflecting_time_start
-			calculating_tophat_size = calculating_tophat_size_stop - calculating_tophat_size_start
-			reciprocating_array = reciprocating_array_stop - reciprocating_array_start
-			generating_large_array = generating_large_array_stop - generating_large_array_start
-			generating_tophat = generating_tophat_stop - generating_tophat_start
-			fft_and_highpassfilter = fft_and_highpassfilter_stop - fft_and_highpassfilter_start
-			ifft =ifft_stop- ifft_start
-			picking_og_signal = picking_og_signal_stop - picking_og_signal_start
-			dividing_structure = dividing_structure_stop - dividing_structure_start
-			meta['reflecting_time'].append(reflecting_time)
-			meta['calculating_tophat_size'].append(calculating_tophat_size)
-			meta['reciprocating_array'].append(reciprocating_array)
-			meta['generating_large_array'].append(generating_large_array)
-			meta['generating_tophat'].append(generating_tophat)
-			meta['fft_and_highpassfilter'].append(fft_and_highpassfilter)
-			meta['ifft'].append(ifft)
-			meta['picking_og_signal'].append(picking_og_signal)
-			meta['dividing_structure'].append(dividing_structure)
 	
-	return {"filtereddata":filtereddata.real, "sigma": sigma, "number of clones": npairs, "meta": meta}, errors
+	if return_parsed_data:
+		return {"filtereddata":filtereddata.real, "sigma": sigma, "background": pickORIG, "number of clones": npairs}
+	else:
+		return filtereddata.real
 
-def gen_recip_copy(arr):
+def gen_recip_copy(arr, n):
 	num_fit_points = 15
 	linear_func = lambda a,b,arr: a*arr + b
 	domain = numpy.arange(num_fit_points)
@@ -204,34 +198,60 @@ def gen_recip_copy(arr):
 	#RECIP = ((arr[-1]**2 - arr[0]**2)*(numpy.cos(numpy.arange(len(arr))*numpy.pi/(2*numpy.size(arr[::-1])))**2) + arr[0]**2)/arr[::-1]
 	RECIP = ((lin_fit_end_clone[-1]**2 - lin_fit_beginning_clone[0]**2)*(numpy.cos(numpy.arange(len(arr))*numpy.pi/(2*len(arr)))**2) + lin_fit_beginning_clone[0]**2)/arr[::-1]
 
+	extended_arr = [*RECIP, *arr]*(n+1)
 	
-	
-	return RECIP, lin_fit_beginning_clone, lin_fit_end_clone
+	return numpy.asarray(extended_arr)
 
-def calc_filter_size(arr, recip_arr):
+def calc_filter_size(arr, extended_arr,n):
 	
 	### Currently testing different calculations of the filter size
-	delta = lambda arr: (numpy.max(arr)-numpy.min(arr))
-	arg_delta = lambda arr: numpy.abs((numpy.argmax(arr)-numpy.argmin(arr)))
 
-	sigma_func = lambda arr: delta(arr)/numpy.std(arr[:10])
+	#frac_delta = lambda arr: (numpy.max(arr)-numpy.min(arr))/(numpy.max(arr)+numpy.min(arr))
 	
-	ORIG_corr = numpy.correlate(recip_arr-numpy.mean(recip_arr), recip_arr-numpy.mean(recip_arr), 'full')
+	delta = lambda arr: (numpy.max(arr)-numpy.mean(arr))
+	arg_delta = lambda arr: numpy.abs((numpy.argmax(arr)-numpy.argmin(arr)))	
+	sigma_func = lambda arr: (delta(arr)/numpy.std(arr[:10]))**(1/2)
+	ext_ORIG_corr = numpy.correlate(extended_arr-numpy.mean(extended_arr), extended_arr-numpy.mean(extended_arr), 'full')
 	
 	
-	#plt.plot(ORIG_corr); plt.show(); plt.plot(recip_arr); plt.show();
+	#plt.plot(ORIG_corr); plt.show(); plt.plot(extended_array); plt.show();
 
 	#Find width of structure using the autocorrelation
-	peaks,_ = find_peaks(ORIG_corr, height=numpy.max(ORIG_corr)/2, distance=50)
-	primary_peak = peaks[numpy.where(ORIG_corr[peaks]==numpy.max(ORIG_corr))[0]][0]
+	peaks,_ = find_peaks(ext_ORIG_corr, height=0, distance=50)
+	primary_peak = peaks[numpy.where(ext_ORIG_corr[peaks]==numpy.max(ext_ORIG_corr))[0]][0]
 	peaks_rem = numpy.delete(peaks, numpy.where(peaks==primary_peak))
-	secondary_peak = peaks_rem[numpy.max(numpy.where(ORIG_corr[peaks_rem]==numpy.max(ORIG_corr[peaks_rem]))[0])]
-	width = secondary_peak-primary_peak
+	secondary_peak = peaks_rem[numpy.max(numpy.where(ext_ORIG_corr[peaks_rem]==numpy.max(ext_ORIG_corr[peaks_rem]))[0])]
+	width = numpy.abs(secondary_peak-primary_peak)
+	
+	test_corr = ext_ORIG_corr[len(extended_arr)-1:]
+	test_width = numpy.where(numpy.diff(numpy.sign(test_corr)))[0][0]
+	
+	width_line = (numpy.max(test_corr)-numpy.min(test_corr))/2 + numpy.min(test_corr)
+	subtracted = test_corr - width_line
+	test_width = numpy.where(numpy.diff(numpy.sign(subtracted)))[0][0]
+	if test_width<12: #Signal is probably mainly noise
+		test_width=10**9 
+	
+	
+	
+	
+	
 	width_factor = 1/numpy.tanh(width/(512/2))
 	
-	sigma = sigma_func(arr)*width_factor
-	return sigma
+	sigma = sigma_func(arr)*width_factor*2
+	
+	noise_to_significant_structure = numpy.tanh(sigma_func(arr)-1)**4
+	higher_modes_factor = 120
+	
+	mode = ((2*numpy.pi/width))*(n*2+1)*higher_modes_factor*noise_to_significant_structure
 
+	vratio = lambda arr: (numpy.max(arr)-numpy.min(arr))/(numpy.max(arr)+numpy.min(arr))
+	wratio = lambda arr:  numpy.abs(numpy.argmax(arr) - numpy.argmin(arr))
+	
+	test_sigma = vratio(arr)/wratio(arr)*(2*n+1)*higher_modes_factor*noise_to_significant_structure
+	test_width_sigma = ((2*numpy.pi/test_width))*(n*2+1)*higher_modes_factor*noise_to_significant_structure
+
+	return test_width_sigma
 
 
 
@@ -296,7 +316,7 @@ savedir = "D:/Users/shaun/Documents/Coding Software/Python/Scripts/New-Analysis-
 
 def generate_signal(with_signal=True, noise_only=False, **kwargs):
 
-	level = 10**(-9)
+	level = 1
 	signal_strength = 0.05/3 # Level to be recoverable with ~20 scans at SNR=3
 	params = [1.4,0.37,4.7e-7]
 	order = 3
@@ -328,6 +348,8 @@ def generate_signal(with_signal=True, noise_only=False, **kwargs):
 		Combined_Signal = numpy.array((noise+signals+1.0))[0]*level
 	elif not with_signal and noise_only:
 		Combined_Signal = numpy.array((noise+1.0))[0]*level
+	elif not with_signal and not noise_only:
+		Combined_Signal = numpy.array((noise+1.0)*background)[0]*level
 	noises = (noise+signals)
 	toreturn = {"Combined signal":Combined_Signal, "noise":noises[0], "backgrounds":background[0], "axion signal":single_signal}
 	return toreturn
@@ -340,20 +362,19 @@ def analysis(scan = [], noise_only=False,**kwargs):
 	sample_noise = generated_signal["noise"]
 	sample_backgrounds = generated_signal["backgrounds"]
 	if len(scan)!=0:
-		BS_res,_ = reciprocated_clone_hpf(scan, 3,  testing_subdir="BS_Analysis_runs/", **kwargs)
-		BS_scan = BS_res["filtereddata"].real
+		BS_res = reciprocated_clone_hpf(scan, 3,  testing_subdir="BS_Analysis_runs/", pure_noise = sample_noise, **kwargs)
+		BS_scan = BS_res
 		Poly_scan = poly_fit(scan) 
 		SG_scan = SG(scan)
 	else:
-		BS_res,_ = reciprocated_clone_hpf(sample_scan, 3,  testing_subdir="BS_Analysis_runs/", **kwargs)
-		BS_scan = BS_res["filtereddata"].real
+		BS_res = reciprocated_clone_hpf(sample_scan, 3,  testing_subdir="BS_Analysis_runs/", pure_noise = sample_noise, **kwargs)
+		BS_scan = BS_res
 		Poly_scan = poly_fit(sample_scan) 
 		SG_scan = SG(sample_scan)
 	nbins=len(sample_scan)
 	signals = numpy.asarray([sample_scan, BS_scan, Poly_scan, SG_scan])
 	
 
-	
 	
 
 	power_spec_array[0].append((SG_scan-numpy.mean(SG_scan)))
@@ -434,12 +455,15 @@ def analysis(scan = [], noise_only=False,**kwargs):
 	
 	
 	#signal-attenuation calculations and plots
-	axion_signal = numpy.sum(generated_signal["axion signal"][128:133])
-	SG_deltas = numpy.sum((SG_scan-numpy.mean(SG_scan))[128:133])
-	BS_deltas = numpy.sum((BS_scan-numpy.mean(BS_scan))[128:133])
-	POLY_deltas = numpy.sum((Poly_scan-numpy.mean(Poly_scan))[128:133])
-	NOISE_deltas = numpy.sum((sample_noise-numpy.mean(sample_noise))[128:133])
+		#Calculate area under signal where axion signal is located and calculate area under axion signal itself
+	axion_signal = numpy.sum(numpy.abs((sample_noise - numpy.mean(sample_noise))[128:133]))
+	SG_deltas = numpy.sum(numpy.abs((SG_scan-numpy.mean(SG_scan))[128:133]))
+	BS_deltas = numpy.sum(numpy.abs((BS_scan-numpy.mean(BS_scan))[128:133]))
+	POLY_deltas = numpy.sum(numpy.abs((Poly_scan-numpy.mean(Poly_scan))[128:133]))
+	NOISE_deltas = numpy.sum(numpy.abs((sample_noise-numpy.mean(sample_noise))[128:133]))
 	
+
+		#Divide integral of signal where axion signal is located by integral of axion signal itself.
 	SG_sig_atten = SG_deltas/axion_signal
 	BS_sig_atten = BS_deltas/axion_signal
 	POLY_sig_atten = POLY_deltas/axion_signal
@@ -547,9 +571,37 @@ def controller(n, **kwargs):
 	plt.clf()
 	
 	#Plot signal attenuation
-	plotter(numpy.asarray(sig_atten[1]), title="RCHPF signal attenuation", savedir = savedir+"RCHPF_sig_atten.pdf")
-	plotter(numpy.asarray(sig_atten[0]), title="Savitzky Golay Signal Attenuation", savedir=savedir+"SG_sig_atten.pdf")
-	plotter(numpy.asarray(sig_atten[2]), title="Polynomial fit Signal Attenuation", savedir=savedir+"poly_sig_atten.pdf")
+	
+	plt.figure(1)
+	plt.subplot(111)
+	plt.title("Signal attenuation")
+	plt.ylabel("Attenuation")
+	plt.xlabel("Iteration")
+	names = ['RCHPF', 'SG']
+	plt.plot(numpy.asarray(sig_atten[0]), label='SG')
+	plt.plot(numpy.asarray(sig_atten[1]), label='RCHPF')
+	st = r"RCHPF: {0:0.2f} $\pm$ {1:0.2f}".format(numpy.mean(sig_atten[1]), numpy.std(sig_atten[1])) + '\n' + r"SG {0:0.2f}  $\pm$  {1:0.2f}".format(numpy.mean(sig_atten[0]), numpy.std(sig_atten[0])) + '\n' + r"POLY {0:0.2f} $\pm$ {1:0.2f}".format(numpy.mean(sig_atten[2]), numpy.std(sig_atten[2]))
+	xticks = plt.xticks()[0]
+	yticks = plt.yticks()[0]
+	plt.legend()
+	plt.text(min(xticks) + 0.55*(max(xticks)-min(xticks)), min(yticks) + 0.7*(max(yticks)-min(yticks)), st)
+	plt.savefig(savedir+"Signal_attenuation.pdf", dpi = 600)
+	
+	fig, ax = plt.subplots(1)
+	fig.patch.set_visible(False)
+	ax.axis('off')
+	ax.axis('tight')
+	ax.set_title("Signal Attenuation")
+	data = {"RCHPF": [r" {0:0.2f} % $\pm$ {1:0.2f} %".format(numpy.mean(sig_atten[1])*100, numpy.std(sig_atten[1])*100)],
+			"SG": [r" {0:0.2f} % $\pm$  {1:0.2f} %".format(numpy.mean(sig_atten[0])*100, numpy.std(sig_atten[0])*100)],
+			"POLY": [r" {0:0.2f} % $\pm$ {1:0.2f} %".format(numpy.mean(sig_atten[2])*100, numpy.std(sig_atten[2])*100)]
+			}
+	df = pd.DataFrame(data = data)
+	ax.table(cellText=df.values, colLabels = df.columns, loc='center')
+	fig.tight_layout()
+	
+	plt.savefig(savedir+"Signal_attenuation_table.pdf", dpi=600)
+	plt.clf()
 	
 	
 	#cumulatively vertically add signals together 
@@ -594,6 +646,7 @@ def controller(n, **kwargs):
 		SG_signal_cumul_atten.append(SG_sig/((i+1)*(axion_sig)))
 		POLY_signal_cumul_atten.append(POLY_sig/((i+1)*(axion_sig)))
 		NOISE_signal_cumul_atten.append(NOISE_sig/((i+1)*(axion_sig)))
+	
 	plotter(numpy.asarray(BS_signal_cumul_atten), title="Coadded RCHPF signal atten", savedir = savedir + "coadded_RCHPF_signal_atten.pdf")
 	plotter(numpy.asarray(SG_signal_cumul_atten), title="Coadded SG signal atten", savedir = savedir +  "coadded_SG_signal_atten.pdf")
 	plotter(numpy.asarray(POLY_signal_cumul_atten), title="Coadded POLY signal atten", savedir = savedir +  "coadded_poly_signal_atten.pdf")
@@ -604,10 +657,10 @@ def controller(n, **kwargs):
 	SG_autocorr_cumul = []
 	POLY_autocorr_cumul = []
 	NOISE_autocorr_cumul = []
-	BS_autocorr_cumul.append(autocorr_array[1][0])
-	SG_autocorr_cumul.append(autocorr_array[0][0])
-	POLY_autocorr_cumul.append(autocorr_array[2][0])
-	NOISE_autocorr_cumul.append(autocorr_array[3][0])
+	BS_autocorr_cumul.append(autocorr_array[1][0]) #RCHPF
+	SG_autocorr_cumul.append(autocorr_array[0][0]) #Savitzky golay
+	POLY_autocorr_cumul.append(autocorr_array[2][0]) #POlynomial 
+	NOISE_autocorr_cumul.append(autocorr_array[3][0]) #noise
 	for i in numpy.arange(1, len(autocorr_array[1])):
 		summed_array = [BS_autocorr_cumul[(i-1)][x]+autocorr_array[1][i][x] for x in numpy.arange(nbins-1)]
 		BS_autocorr_cumul.append(summed_array)
@@ -681,6 +734,7 @@ def SG(signal):
 
 
 """
+	arg_delta = lambda arr: numpy.abs((numpy.argmax(arr)-numpy.argmin(arr)))
 	struc_length = 2*(numpy.absolute(argmax-argmin))
 	sigmamult_n = (2*numpy.pi)/(struc_length)*5*10**2
 	nnarg = lambda arr: (10*numpy.std(arr)/numpy.median(arr))**4

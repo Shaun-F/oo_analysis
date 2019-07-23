@@ -140,7 +140,8 @@ class signal(object):
 		"""
 		import numpy
 
-		if mod_vel>200:
+		mod_vel = numpy.array(mod_vel)
+		if (mod_vel>200).any():
 			print("Error: modulation velocity for lentzian line shape should be relative to solar velocity, not relative to galactic center")
 		else:
 			pass
@@ -168,11 +169,14 @@ class signal(object):
 		mask_complement = np.setdiff1d(range(len(f)), mask) #If input frequency is less than the rest mass frequency, probability is zero (nonphysical)
 		arr = f.copy()
 		
-		Boost = 1-((mod_vel)*(v_sol))/((v_sol**2)) #Modulating parameter to account for diurnal variations
+		mod_vel_mag = np.linalg.norm(mod_vel)
+		v_sol = np.linalg.norm(v_sol)
+		Boost = 1-((mod_vel_mag)*(v_sol))/((v_sol**2)) #Modulating parameter to account for diurnal variations
 		N_num = beta
 		N_den = ((Boost/(T*f_o))**beta)**(-(1.0+alpha)/beta)*(Boost/(T*f_o))**(alpha)*gamma
 		nrmcnst = N_num/N_den
 
+	
 		#The distribution function
 		arr[mask] = nrmcnst*(((f[mask]-f_o)*Boost)/(f_o*T))**(alpha)*np.exp(-(((f[mask]-f_o)*Boost)/(f_o*T))**beta)
 		arr[mask_complement]=0

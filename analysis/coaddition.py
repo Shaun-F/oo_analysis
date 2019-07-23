@@ -2,10 +2,11 @@
 import datetime as dt
 import numpy as np
 import sys; sys.path.append("..")
-from toolbox.add_to_dataset import * #addtodataset, subtractfromdataset, assign_newdata
+
+from oo_analysis.toolbox.add_to_dataset import * #addtodataset, subtractfromdataset, assign_newdata
 import numba; from numba import njit, jit
 import time
-from toolbox.grand_spectra_init import initialization
+from oo_analysis.toolbox.grand_spectra_init import initialization
 
 
 class scan_cl(object):
@@ -343,6 +344,7 @@ class scan_cl(object):
 		chunk['sensitivity_power'][...] = self.chunk['sensitivity_power']
 		chunk['sensitivity_coupling'][...] = self.chunk['sensitivity_coupling']
 		chunk['last_change'][...] = self.chunk['last_change']
+		print(self.chunk['last_change'])
 
 		
 
@@ -437,7 +439,7 @@ def add_subtract_scan(add_subtract, scan, object, scan_id, grand_spectra_group, 
 	lastcalc_start = time.time()
 	lastcalc = dt.datetime.now()
 	lastcalc = lastcalc.strftime('%Y-%m-%d %H:%M:%S')
-	object.chunk_last_change = str(lastcalc)
+	object.chunk['last_change'][0] = str(lastcalc).encode()
 	last_calc_stop = time.time()
 
 	close_out_start = time.time()
