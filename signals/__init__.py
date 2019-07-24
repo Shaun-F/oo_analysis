@@ -6,7 +6,6 @@ Creation Date: 10/26/18
 """
 from .modulation import modulation
 from oo_analysis.toolbox.dict_to_object import dict_to_object
-import time
 
 
 def generate(object):
@@ -22,16 +21,8 @@ def generate(object):
 	modparams = {key: getattr(object,key) for key in modkeys}
 	
 	# get callable signal
-	signal_gen_start = time.time()
-	#signal = slib.signal(sigparams) #can generate signals and modulate at the same time.
-	signal_gen_stop = time.time()
-	
-	#meta analysis
-	meta = {"meta_analysis":object.meta_analysis}
 	
 	# modulate signal for each scan
-	signal_mod_start = time.time()
-	signals = modulation(**modparams, **scanparams_dict, **sigparams, **meta).executor()
-	signal_mod_stop = time.time()
+	signals = modulation(**modparams, **scanparams_dict, **sigparams).executor()
 	
 	return signals

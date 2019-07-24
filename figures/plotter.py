@@ -14,9 +14,9 @@ class figures_class():
 	def __init__(self, savedir='here', **kwargs):
 		
 		if savedir == 'here':
-			savedir = os.path.abspath(os.path.dirname(sys.argv[0]))
+			savedir = os.path.abspath(os.path.dirname(sys.argv[0])) + "/oo_analysis/figures/"
 		#set values common to all plots
-		raw_data_filename = os.getcwd() + "/data/raw/run1a_data.hdf5"
+		raw_data_filename = os.getcwd() + "/oo_analysis/data/raw/run1a_data.hdf5"
 		self.file = h5py.File(raw_data_filename.encode(), 'r')
 		self.grand_spectra_group = self.file['grand_spectra_run1a']
 		self.digitizer_group = self.file['digitizer_log_run1a']
@@ -66,8 +66,9 @@ class figures_class():
 		"""
 		data = self.grand_spectra_group['sensitivity_power'][...]
 		mask = np.isfinite(data)
-		reduced_data = data[mask][self.RF_interference_mask]
-		domain = self.axion_frequencies_MHz[mask][self.RF_interference_mask]*10**-6
+		master_mask = mask&self.RF_interference_mask
+		reduced_data = data[master_mask]
+		domain = self.axion_frequencies_MHz[master_mask]
 		plt.locator_params(axis='x', nbins=8)
 		plt.xticks(rotation=25)
 		plt.ticklabel_format(useOffset=False)

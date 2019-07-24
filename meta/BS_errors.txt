@@ -9,8 +9,3 @@ Background subtraction filter size maxed out with scan 432061 (sigma=307.17795)
 Background subtraction filter size maxed out with scan 451477 (sigma=301.07361)
 Background subtraction filter size maxed out with scan 484762 (sigma=318.97762)
 Background subtraction filter size maxed out with scan 525034 (sigma=551.23193)
-
-Background subtraction filter size maxed out with scan  (sigma=307.17795)
-Background subtraction filter size maxed out with scan  (sigma=307.17795)
-Background subtraction filter size maxed out with scan  (sigma=307.17795)
-Background subtraction filter size maxed out with scan  (sigma=307.17795)

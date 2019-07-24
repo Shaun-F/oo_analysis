@@ -5,7 +5,7 @@ Created on Wed Aug  1 14:52:47 2018
 @author: Shaun Fell
 """
 import sys
-sys.path.append("..")
+import os
 
 import numpy
 from astropy import constants as const
@@ -13,7 +13,6 @@ from astropy import units as U
 import oo_analysis.filters.backsub_filters_lib as backsub_filters_lib
 from oo_analysis.filters.backsub_filters_lib import *
 from oo_analysis.toolbox.DFT import DFT, IDFT
-from oo_analysis.toolbox.signal_width import *
 from oo_analysis.analysis.bin_consolidator import bin_consolidator
 import h5py
 from oo_analysis.toolbox.axion_power import axion_power
@@ -43,7 +42,6 @@ def MR_scan_analysis(scan, **params):
 		scan_number = params["scan_number"]
 		#Write exceptions here (reason not to include scans in Run1A)
 		
-		constants_start = time.time()
 		fstart = float(digitizer_scan.attrs["start_frequency"])
 		fstop = float(digitizer_scan.attrs["stop_frequency"])
 		res = float(digitizer_scan.attrs["frequency_resolution"])
@@ -56,7 +54,7 @@ def MR_scan_analysis(scan, **params):
 				
 		modulation_type = params["pec_vel"]
 		signal_shape = params["signal_dataset"][scan_number]['signal']
-		signal_width_Hz = calc_signal_width(signal_shape)*binwidth
+		signal_width_Hz = params["signal_dataset"][scan_number]['signal_width']
 		data = digitizer_scan[...]
 		
 		h = const.h.to(U.eV*U.s).value #plancks const eV*s
@@ -74,16 +72,13 @@ def MR_scan_analysis(scan, **params):
 		startfreq = float(digitizer_scan.attrs["start_frequency"])*10**6 #Hz
 		wantTseries=None
 		
-		constants_stop = time.time()
 		
 		
 		
 		#Calculate average power deposited by axion
-		axion_power_start = time.time()
-		dfszaxion = axion_power(params["axion_scan"],axion_RMF)
-		axion_power_stop = time.time()
+		dfszaxion = axion_power(digitizer_scan,axion_RMF)
 		
-	except SyntaxError as error:
+	except (SyntaxError, KeyError) as error:
 		print("MR_scan_analysis failed at scan {0} with error: \n {1}".format(scan_number, error))
 		raise
 	
@@ -93,7 +88,6 @@ def MR_scan_analysis(scan, **params):
 		DFSZshape = signal_shape*dfszaxion
 
 		#Remove Receiver response from scan
-		BS_start = time.time()
 
 		filter_function = getattr(backsub_filters_lib, params['filter'])
 		data[0] = np.mean([data[1], data[2], data[3]]) # Some spectra have odd behavior at beginning of scan, i.e. a single downward spike at the beginning position. I just set a default value
@@ -112,46 +106,35 @@ def MR_scan_analysis(scan, **params):
 		filtered_dict = filter_function(data, **params['filter_params'])
 		filtered_data = filtered_dict['filtereddata']
 
-		BS_stop = time.time()
 		
-		consolidation_start = time.time()
 		filtered_data_mean = numpy.mean(filtered_data)
 		deltas = np.asarray((filtered_data - filtered_data_mean))
-		digitizer_scan = bin_consolidator(digitizer_scan, res)
+		
+		#digitizer_scan = bin_consolidator(digitizer_scan, res)
 		
 		
-		consolidation_stop = time.time()
 		
-		
-		cavity_lorentz_start = time.time()
-		Q = params["axion_scan"].attrs["Q"]
-		res_freq = params["axion_scan"].attrs["mode_frequency"] #MHz
+		Q = digitizer_scan.attrs["Q"]
+		res_freq = digitizer_scan.attrs["mode_frequency"] #MHz
 		lorentzian_profile = lorentzian(Q, res_freq*10**6, fstart*10**6, fstop*10**6, binwidth)
 		cc = 0.5
 		cav_trans_mod = cc*lorentzian_profile
 		axion_power_excess_watts = convolve_two_arrays(DFSZshape, cav_trans_mod)
-		cavity_lorentz_stop = time.time()
 
 		
 		#Genereate bin-wise scan stats assuming all power in single bin
-		bin_stats_start = time.time()
 		sigma = numpy.std(deltas)
 		sigma_w = power_johnson*(signal_width_Hz*int_time)**(-1/2)
 		power_deltas = power_johnson*deltas
 		nscans = lorentzian_profile
 		SNR = (axion_power_excess_watts/sigma_w)
 		if (SNR>20).any():
-			print("SNR for scan number {0} is above 20".format(scan_number))
+			err = "\nSNR for scan number {0} is above 20".format(scan_number)
+			with open(os.getcwd() + "/oo_analysis/meta/error_log", 'a+') as file:
+				file.write(err)
+				print(err, end='')
 	
-		
-		
-		bin_stats_stop = time.time()
-
-		
-		
-		chi_squared_start = time.time()
 		chi_squared_results = chi_squared(power_deltas, DFSZshape, lorentzian_profile, sigma_w, cc=0.5)
-		chi_squared_stop = time.time()
 		
 		sensitivity_power = chi_squared_results['power_sensitivity']
 		sensitivity_coupling = chi_squared_results['coupling_sensitivity']
@@ -163,12 +146,10 @@ def MR_scan_analysis(scan, **params):
 		#Fit to axion signal
 
 		
-		axion_rmfs_start = time.time()
 		axion_rmfs = []
 		n_signal_width = len(DFSZshape)
 		for i in numpy.arange(scan_length+2*n_signal_width)-1:
 			axion_rmfs.append(axion_RMF + binwidth*(i-middlefreqpos-n_signal_width))
-		axion_rmfs_stop = time.time()
 		
 
 		#consolidate statisitics
@@ -179,23 +160,8 @@ def MR_scan_analysis(scan, **params):
 		
 	except (KeyError, ValueError, IndexError) as error:
 		print("\n\nError with scan {0} in single scan analysis script.".format(scan_number))
-		open('../meta/error_log', 'a+').write(str(time.time())+ "\n\n"+ str(error))
+		open(os.getcwd() + "/oo_analysis/meta/error_log", 'a+').write("\n\n"+ str(error))
 		raise
-	
-		
-		
-	if params['submeta']['timeit']:
-		submeta = params['submeta']
-		submeta['constants'].append(constants_stop - constants_start)
-		submeta['axion_power'].append(axion_power_stop - axion_power_start)
-		submeta['modulation'].append(modulation_stop - modulation_start)
-		submeta['BS'].append(BS_stop - BS_start)
-		submeta['convolutions'].append(chi_squared_stop - chi_squared_start)
-		submeta['consolidation'].append(consolidation_stop - consolidation_start)
-		submeta['cavity_lorentz'].append(cavity_lorentz_stop - cavity_lorentz_start)
-		submeta['bin_stats'].append(bin_stats_stop - bin_stats_start)
-		submeta['axion_rmfs'].append(axion_rmfs_stop - axion_rmfs_start)
-	
 	
 	results = {'deltas':deltas,
 				'scan_id':scan_number,
@@ -319,13 +285,3 @@ def new_padding(arr, pad_len, pad_val = 0): #pad_len is tuple-like. zeroth index
 	lpad, rpad = pad_len[0], pad_len[1]
 	new_arr = numpy.pad(new_arr, (lpad, rpad), 'constant', constant_values=pad_val)
 	return new_arr
-	
-	
-	
-	
-	
-	
-	
-	
-	
-    

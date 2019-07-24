@@ -36,16 +36,13 @@
 ehthumbs.db
 Thumbs.db
 
-#Large files
+#Unwanted files
 ######################
 run1a_data.hdf5
-frequencies.txt
-frequencies
-scan_rate.txt
-scan_rate
+Analytics.txt
 
 #Unwanted folders
 ######################
 rchpf_testing
-BS_Analysis_runs
+
 

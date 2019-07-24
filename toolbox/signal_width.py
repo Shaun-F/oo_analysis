@@ -1,4 +1,5 @@
 import numpy as np
+import numba
 
 def calc_signal_width(signal):
 	max = np.max(signal)

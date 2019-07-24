@@ -11,10 +11,9 @@ from datetime import datetime as dt
 from dateutil.parser import parse
 import pytz
 import sys
-sys.path.append("..")
 import oo_analysis.toolbox.coord_transform as tf_lib
 from oo_analysis.signals.signal_lib import signal
-import time
+from oo_analysis.toolbox.signal_width import calc_signal_width
 
 class modulation():
 	def __init__(self,**params):
@@ -39,9 +38,7 @@ class modulation():
 		axion_mass = default["axion_mass"]
 		scans = default["dig_dataset"]
 		
-		sig_mod_list_start = time.time()
 		self.mod_vels = self.modulate(modulation_type, timestamps, shape_model) #dictionary of total experiment velocity around galactic center keyed by timestamp
-		sig_mod_list_stop = time.time()
 		
 
 		#define secondary values and attach to class
@@ -56,7 +53,6 @@ class modulation():
 			counter = 1
 			N_iter = len(self.keys)
 			for key in self.keys:
-				start = time.time()
 				timestamp = timestamps[key]
 				if not isinstance(axion_mass, float):
 					a_mass = axion_mass[key]
@@ -64,40 +60,16 @@ class modulation():
 					a_mass = axion_mass
 				signals[key] = self.modulatedsignal(modulation_type, timestamp, shape_model, a_mass, self.mod_vels[timestamp], **secondary)
 				if ('SIA',True) not in list(self.__dict__.items()):
-					print("generating signals ({0} % complete) \r".format((counter/N_iter)*100), end='')
+					if int(counter/N_iter*100)-counter/N_iter*100<10**(-8):
+						print("generating signals ({0} % complete) \r".format(int((counter/N_iter)*100)), end='')
 				counter+=1
-				stop = time.time()
-				timer.append(stop-start)
 				
 		else:
-			start = time.time()
 			timestamp = timestamps
 			a_mass = axion_mass
 			signals[key] = self.modulatedsignal(modulation_type, timestamp, shape_model, a_mass, self.mod_vels[timestamp], **secondary)
 			print("Signal generation complete \r", end='')
-			stop = time.time()
-			timer.append(stop-start)
-	
-		if self.meta_analysis[0]:
-			#Generating modulated signal time
-			sig_mod_avg = sum(timer)/len(timer)
-			sig_mod_tot = sum(timer)
-			#modulation velocity time
-			##sig_mod_vel_avg = sum(self.sig_mod_list)/len(self.sig_mod_list)
-			sig_mod_vel_tot = sig_mod_list_stop-sig_mod_list_start
-			#signal integration time
-			sig_integ8_avg = sum(self.sig_integ8_list)/len(self.sig_integ8_list)
-			sig_integ8_tot = sum(self.sig_integ8_list)
-			
-			self.meta_analysis.append("\n\n########## averages of signal generation ##########")
-			self.meta_analysis.append("Generating modulated signal took, on average, {0:03f} seconds".format(sig_mod_avg))
-			self.meta_analysis.append("Signal integration took, on average, {0:03f} seconds".format(sig_integ8_avg))
-			#self.meta_analysis.append("Calculating modulation velocity took, on average, {0:03f} seconds".format(sig_mod_vel_avg))
-			
-			self.meta_analysis.append("\n\n########## totals of signal generation ##########")
-			self.meta_analysis.append("Total modulated signal generation time over all signals is {0:03f} seconds".format(sig_mod_tot))
-			self.meta_analysis.append("Total signal integration time over all signals is {0:03f} seconds".format(sig_integ8_tot))
-			self.meta_analysis.append("Total time to calculate modulation velocity is {0:03f} seconds".format(sig_mod_vel_tot))
+
 		return signals
 		
 	# methods for incorporating several levels of peculiar velocities and other
@@ -197,7 +169,6 @@ class modulation():
 		info = []
 		i=0
 
-		integrate_signal_start = time.time()
 		#modulate specified axion shape based on input parameters
 		if shape_model == "axionDM_w_baryons":
 			while sumbins<cutoffarea:
@@ -285,7 +256,6 @@ class modulation():
 		else:
 			return "Error: Axion shape model not recognized" #Error message if shape model has not yet been defined or doesnt even exist
 
-		integrate_signal_stop = time.time()
 		
 		#if wantTseries == 'y', then fourier transform the signal into a time series. if not, leave it alone
 		if wantTseries == "y":
@@ -294,14 +264,17 @@ class modulation():
 			finalsignal = binned_signal
 
 		#collect important properties and values
-		if len(finalsignal)>100:
+		if len(finalsignal)>100: #upper bound on length of signal array to mitigate floating point error effects
 			finalsignal = finalsignal[:100]
 			
 		
-		
-		info = {'rest mass frequency':RMF, 'shape': shape_model, 'signal': np.asarray(finalsignal), 'freqs':np.asarray(startingfreqs)}
-		#self.sig_mod_list.append(mod_vel_stop - mod_vel_start)
-		self.sig_integ8_list.append(integrate_signal_stop-integrate_signal_start)
+		signal_width = calc_signal_width(np.array(finalsignal))*bin_width
+		info = {'rest mass frequency':RMF, 
+				'shape': shape_model, 
+				'signal': np.asarray(finalsignal), 
+				'freqs':np.asarray(startingfreqs),
+				'signal_width': signal_width}
+				
 		return info
 
 	def timestamptranslator(self, date):
@@ -311,15 +284,7 @@ class modulation():
 		Output: Number of hours since Midnight june 17th, 1998 GMT from input timestamp
 
 		"""
-		
-#		if self.timestamp[2]== '-':
-#			"""This IF statement tests whether the date string is in the form 'dd-mm-yyyy  hh:mm:ss AM'. This is the case for a digitizer timestamp"""
-#			d1 = dt.strptime(timestamp, "%d-%m-%Y  %I:%M:%S %p")
-#			d1 = dt(d1.year,d1.month,d1.day,d1.hour,d1.minute,d1.second,0, tzinfo=pytz.timezone('America/Vancouver'))
-#		if self.timestamp[4]== '-':
-#			"""This IF statement tests whether the date string is in the form 'yyyy-mm-dd hh:mm:ss-ss'. This is the standard ISO 8601 format and the format Python uses for the datetime module"""
-#			d1 = dt.strptime(timestamp, "%Y-%m-%d %H:%M:%S-%f")
-#			d1 = dt(d1.year,d1.month,d1.day,d1.hour,d1.minute,d1.second,0, tzinfo=pytz.timezone('America/Vancouver'))
+
 		
 		d1 = parse(date)
 		d1 = dt(d1.year,d1.month,d1.day,d1.hour,d1.minute,d1.second,0, tzinfo=pytz.timezone('America/Vancouver'))

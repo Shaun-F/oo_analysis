@@ -276,4 +276,34 @@ Cannot cast ufunc add output from dtype('complex128') to dtype('<f4') with casti
 
 ufunc 'add' did not contain a loop with signature matching types dtype('<U53') dtype('<U53') dtype('<U53')1563894768.6422276
 
-'axion_injector' object is not iterable
+'axion_injector' object is not iterable1563911995.403781
+
+'axion_scan'1563912258.177462
+
+Field names only allowed for compound types1563912308.7005801
+
+Field names only allowed for compound types1563912363.0160677
+
+list index out of range1563938335.3753276
+
+unsupported operand type(s) for -: 'str' and 'str'1563938380.5590022
+
+unsupported operand type(s) for -: 'str' and 'str'1563938511.559776
+
+unsupported operand type(s) for -: 'str' and 'str'1563938560.8307185
+
+list index out of range1563938986.8818026
+
+"Can't open attribute (can't locate attribute: 'deltas')"1563938986.898757
+
+"Can't open attribute (can't locate attribute: 'deltas')"1563939123.9848735
+
+'generator' object is not subscriptable1563940038.0853248
+
+'False'1563940066.8252354
+
+False1563940196.7299302
+
+False1563940213.1735914
+
+False

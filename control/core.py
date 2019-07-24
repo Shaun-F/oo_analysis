@@ -24,7 +24,7 @@ import datetime as dt
 class core_analysis():
 	
 	
-	def __init__(self, args, **kwargs):
+	def __init__(self, args=None, **kwargs):
         # get parameters
 		
 		current_dir = os.getcwd()
@@ -41,15 +41,20 @@ class core_analysis():
         # from param file
 		
 		#parse command line arguments
-		timeit = args.timeit
-		reset = args.clear_grand_spectra
-		start_scan = args.start_scan
-		end_scan = args.end_scan
-		make_plots = args.make_plots
+		self.make_plots=False
+		if args!=None:
+			reset = args.clear_grand_spectra
+			start_scan = args.start_scan
+			end_scan = args.end_scan
+			self.make_plots = args.make_plots
 		
-		#store defaults
-		params['start_scan']=start_scan
-		params['end_scan']=end_scan
+			#store defaults
+			if start_scan!='':
+				params['start_scan']=start_scan
+			if end_scan!='':
+				params['end_scan']=end_scan
+			if reset and 'grand_spectra_run1a' in self.h5py_file.keys():
+				del self.h5py_file['grand_spectra_run1a']	
 		
 		#add class attributes
 		for arg, val in kwargs.items():
@@ -77,8 +82,6 @@ class core_analysis():
 			print("Note: Dataset was partitioned")
 		
 		self.update_astronomical_tables()
-		if reset and 'grand_spectra_run1a' in self.h5py_file.keys():
-			del self.h5py_file['grand_spectra_run1a']	
         
 		
 		# derive necessary experiment data structures (put into dig_dataset)
@@ -142,16 +145,13 @@ class core_analysis():
 				except SystemExit:
 					os._exit(0)
 			
-			# set all calculations in motion
-			self.meta_analysis = [timeit]
-			
+			# set all calculations in motion			
 			self.collect_bad_scans()
 			import oo_analysis.signals
-			self.signals_start = time.time()
 			self.signal_dataset = oo_analysis.signals.generate(self)
-			self.signals_stop=time.time()
 			
 			import oo_analysis.analysis
+			
 			self.analysis_start=time.time()
 			self.grand_spectra_group, ncut = oo_analysis.analysis.grand_spectra(self)
 			self.analysis_stop=time.time()
@@ -168,7 +168,7 @@ class core_analysis():
 		except (KeyError, TypeError, SyntaxError) as error:
 			self.h5py_file.close() #prevent corruption on break
 			print("Execution failed with error: \n {0}".format(error))
-			open(self.error_file, 'a+').write(str(time.time())+ "\n\n"+ str(error))
+			open(self.error_file, 'a+').write("\n\n"+ str(error))
 			raise
 		except KeyboardInterrupt:
 			self.h5py_file.close()
@@ -181,9 +181,9 @@ class core_analysis():
 			#save analysis to disk and close out file
 			string="Analysis of {0} scans took {1:0.3f} seconds. \tOf those scans, {2:d} were cut".format(len(self.keys),  self.analysis_stop-self.analysis_start, ncut)
 			print(string)
-			self.collect_meta_data()
 			self.output()
-			#self.generate_plots()
+			if self.make_plots:
+				self.generate_plots()
 			self.h5py_file.close() #Close the file, saving the changes.
 			return None
 			
@@ -199,11 +199,9 @@ class core_analysis():
 		# collecting metadata for later analysis
 		# may want to set up to run through only one or a set of conditions
 		# should also try to make dynamics so that it only tries new conditions
-		bad_scans_timer = []
 		for key in self.keys: # python 3.x
 			try:
 				if key not in self.bad_scans:
-					bad_scans_start = time.time()
 					cut = False
 					cut_reason = ""
 					condition = self.bad_scan_criteria
@@ -238,8 +236,6 @@ class core_analysis():
 					
 					self.dig_dataset[key].attrs["cut"] = cut
 					self.dig_dataset[key].attrs["cut_reason"] = cut_reason
-					bad_scans_stop = time.time()
-					bad_scans_timer.append(bad_scans_stop-bad_scans_start)
 				elif key in self.bad_scans:
 					cut = True
 					cut_reason = "Check bad scans file"
@@ -247,32 +243,13 @@ class core_analysis():
 					self.dig_dataset[key].attrs['cut_reason']=cut_reason
 			except (RuntimeError, KeyError) as error:
 				print("\n\nError with scan {0}.".format(key))
-				open('../meta/error_log', 'a+').write(str(time.time())+ "\n\n"+ str(error))
+				open(self.error_file, 'a+').write("\n\n"+ str(error))
 				raise
-		#meta analysis
-		if self.meta_analysis[0]:
-			if len(bad_scans_timer)==0:
-				average_time = 0
-			else:
-				average_time = sum(bad_scans_timer)/len(bad_scans_timer)
-			self.meta_analysis.append("Collecting bad scans took {0:0.3f} seconds".format(average_time))
 		return None
 
 	def collect_meta_data(self):
 		# collects summary data on each scan for decision-making and
 		# later analysis
-		if self.meta_analysis[0]:
-			print("\n\n################################ Meta-analysis ################################")
-			self.meta_analysis.append("\n\nTotal signal generation time is {0:03f} seconds".format(self.signals_stop - self.signals_start))
-			self.meta_analysis.append("Total analysis time of {0} scans is {1:03f} seconds".format(len(self.keys), self.analysis_stop - self.analysis_start))
-			[print(x) for x in self.meta_analysis[1:]] #zeroth index contains parameters of meta-analysis
-			print("#################################### End of Meta-analysis###########################\n\n")
-			date = datetime.datetime.now()
-			filename = "../meta/analysis_statistics" + "(" + str(date.year) + "-" + str(date.month) + "-" + str(date.day) + "_" + str(date.hour) + "-" + str(date.minute) + "-" + str(date.second) + ")(" + str(len(self.keys)) + "_scans).txt"
-			with open(filename, "w") as f:
-				for x in self.meta_analysis[1:]:
-					f.write(str(x) + "\n")
-
 		return None
 	
 	def generate_plots(self):
@@ -292,8 +269,7 @@ class core_analysis():
 		temperature wrt frequency and time
 		"""
 		
-		import figures.plotter; 
-		from figures.plotter import figures_class
+		from oo_analysis.figures.plotter import figures_class
 		save_dir = "C:/users/drums/documents/coding software/python/scripts/New-Analysis-Scheme/oo_analysis/figures"
 		kwargs = {"Tsys": list(self.Tsys.values()), "timestamp":list(self.timestamp.values()), "mode_frequencies": list(self.mode_frequencies.values())}
 		
@@ -321,5 +297,8 @@ class core_analysis():
 						return None
 					except urllib.error.URLError:
 						print("Cannot download astronomical data. Check internet connection or manually update datatables. Defaulting to stored data")
-			
+	
+	def garbage_collector(self):
+		import gc
+		gc.collect()
 		

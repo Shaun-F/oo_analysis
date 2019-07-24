@@ -1,11 +1,11 @@
 
 import datetime as dt
 import numpy as np
-import sys; sys.path.append("..")
+import sys
+import os
 
 from oo_analysis.toolbox.add_to_dataset import * #addtodataset, subtractfromdataset, assign_newdata
 import numba; from numba import njit, jit
-import time
 from oo_analysis.toolbox.grand_spectra_init import initialization
 
 
@@ -22,56 +22,14 @@ class scan_cl(object):
 		Initialization method
 		"""
 		
-		init_scans_in_class_start = time.time()
 		self.op = op
 		self.scan=scan
 		self.scan_scan_number = scid
-		init_scans_in_class_stop = time.time()
 		
 		#setup class definitions for chunk 
 		#pull only array of points from grand_spectra that line up with scan
-		init_GS_in_class_start = time.time()
 		self.chunk = chunk
-		init_GS_in_class_stop = time.time()
-		
-		"""
-		self.scan_nscans = scan["nscans"]
-		self.scan_sigma_w = scan["sigma_w"]
-		self.scan_optimal_weight_sum = scan["optimal_weight_sum"]
-		self.scan_SNR = scan["SNR"]
-		self.scan_noise_power = scan["noise_power"]
-		self.scan_power_deviation = scan["power_deviation"]
-		self.scan_model_excess_sqrd = scan["model_excess_sqrd"]
-		self.scan_axion_fit = scan["axion_fit"]
-		self.scan_axion_fit_uncertainty = scan["axion_fit_uncertainty"]
-		self.scan_sensitivity_power = scan["sensitivity_power"]
-		self.scan_sensitivity_coupling = scan["sensitivity_coupling"]
-		self.scan_axion_frequencies = scan["axion_frequencies"]
-		self.chunk_axion_frequencies = chunk["axion_frequencies"][...]
-		self.matched_indices = self.frequency_index_matcher()
-		self.chunk_indices = list(self.matched_indices[0])
-		min_inx = min(self.chunk_indices)
-		max_inx = max(self.chunk_indices)+1
-		self.chunk_nscans = chunk["nscans"][min_inx:max_inx]
-		self.chunk_sigma_w = chunk["sigma_w"][min_inx:max_inx]
-		self.chunk_optimal_weight_sum = chunk["optimal_weight_sum"][min_inx:max_inx]
-		self.chunk_SNR = chunk["SNR"][min_inx:max_inx]
-		self.chunk_noise_power = chunk["noise_power"][min_inx:max_inx]
-		self.chunk_power_deviation = chunk["power_deviation"][min_inx:max_inx]
-		self.chunk_model_excess_sqrd = chunk["model_excess_sqrd"][min_inx:max_inx]
-		self.chunk_axion_fit = chunk["axion_fit"][min_inx:max_inx]
-		self.chunk_axion_fit_uncertainty = chunk["axion_fit_uncertainty"][min_inx:max_inx]
-		self.chunk_sensitivity_power = chunk["sensitivity_power"][min_inx:max_inx]
-		self.chunk_sensitivity_coupling = chunk["sensitivity_coupling"][min_inx:max_inx]
-		self.chunk_axion_fit_significance = chunk['axion_fit_significance'][min_inx:max_inx]
-		self.chunk_last_change = chunk['last_change']
-		"""
-		
-		submeta = params['submeta']
-		if submeta['timeit']:
-			submeta['init_scans_in_class'].append(init_scans_in_class_stop - init_scans_in_class_start)
-			#submeta['init_grand_spectra'].append(init_GS_stop - init_GS_start)
-			submeta['init_grand_spectra_in_class'].append(init_GS_in_class_stop-init_GS_in_class_start)
+
 			
 		
 			
@@ -130,7 +88,7 @@ class scan_cl(object):
 				return two_indices
 		except (IndexError, KeyError) as error:
 			print('frequency matcher failed at scan {0} with error: {1}'.format(self.scan_scan_number, error))
-			open('../meta/error_log', 'a+').write(str(time.time())+ "\n\n"+ str(error))
+			open(os.getcwd() + '/oo_analysis/meta/error_log', 'a+').write("\n\n"+ str(error))
 			raise
 
 		
@@ -366,18 +324,6 @@ def add_subtract_scan(add_subtract, scan, object, scan_id, grand_spectra_group, 
 		
 	#Running initiliazation procedure for chunks, i.e. create missing arrays.
 	#chunk = initialization(chunk) 									Not currently using.
-	"""
-	check_member_start = time.time()
-	if op=="+" and len(numpy.where(chunk["scans_in"]==scan_id.encode())[0])!=0:
-		phrase = "scan " + str(scan_id) + " already added. Skipping coaddition"
-		#print(phrase)
-		return phrase
-	elif op=="-" and len(numpy.where(chunk["scans_out"]==scan_id.encode())[0])!=0:
-		phrase = "scan " + str(scan_id) + " already subtracted. Skipping coaddition"
-		#print(phrase)
-		return phrase
-	check_member_stop = time.time()
-	"""
 	
 	corrupt_scan=False
 	if type(scan) is str:
@@ -386,121 +332,38 @@ def add_subtract_scan(add_subtract, scan, object, scan_id, grand_spectra_group, 
 		object.op = 'nil'
 	
 	
-	attaching_new_scan_to_class_start = time.time()
 	object.scan = scan
 	object.scan_scan_number = scan_id
-	attaching_new_scan_to_class_stop = time.time()
 	
-	calculating_indices_start = time.time()
 	appended_length = len(scan['axion_frequencies'])
 	mid_freq = scan['middle_frequency']
 	ainx_start = int(numpy.round((mid_freq - grand_spectra_group['axion_frequencies'][0])/(95.4)) - appended_length/2)
 	ainx_end = int(ainx_start + appended_length)
 	inx_start = int(numpy.round((mid_freq - grand_spectra_group['axion_frequencies'][0])/(95.4)) - 256/2)
 	inx_end = int(inx_start + 256)
-	calculating_indices_stop = time.time()
 	
-	consolidation_time_start = time.time()
 	if not corrupt_scan and object.op!='nil':
 		try:
-			opt_wght_sum_start = time.time()
 			object.chunk['optimal_weight_sum'][ainx_start:ainx_end] = object.optimal_weight_sum_consolidation(ainx_start, ainx_end)
-			opt_wght_sum_stop = time.time()
 			object.chunk['model_excess_sqrd'][ainx_start:ainx_end] = object.model_excess_sqrd_consolidation(ainx_start, ainx_end)
-			nscans_stop = time.time()
 			object.chunk['nscans'][ainx_start:ainx_end] = object.nscan_consolidation(ainx_start, ainx_end)
-			SNR_stop = time.time()
 			object.chunk['SNR'][ainx_start:ainx_end] = object.SNR_consolidation(ainx_start, ainx_end)
-			sigma_A_stop = time.time()
 			object.chunk['axion_fit_uncertainty'][ainx_start:ainx_end] = object.sigma_A_consolidation(ainx_start, ainx_end)
-			power_dev_stop = time.time()
 			object.chunk['power_deviation'][inx_start:inx_end] = object.power_deviation_consolidation(inx_start, inx_end) #formerly weighted deltas
-			coupl_sens_stop = time.time()
 			object.chunk['sensitivity_coupling'][ainx_start:ainx_end] = object.coupling_sensitivity_consolidation(ainx_start, ainx_end)
-			power_sens_stop = time.time()
 			object.chunk['sensitivity_power'][ainx_start:ainx_end] = object.power_sensitivity_consolidation(ainx_start, ainx_end)
-			noise_pow_stop = time.time()
 			object.chunk['noise_power'][ainx_start:ainx_end] = object.noise_power_consolidation(ainx_start, ainx_end)
-			axion_fit_stop = time.time()
 			object.chunk['axion_fit'][ainx_start:ainx_end] = object.axion_fit_consolidation(ainx_start, ainx_end)
-			axion_fit_sig_stop = time.time()
 			object.chunk['axion_fit_significance'][ainx_start:ainx_end] = object.axion_fit_significance_consolidation(ainx_start, ainx_end)
-			scans_start = time.time()
-			"""
-			#addtodataset(chunk['scans'], scan_id)
-			scans_stop = time.time()
-			"""
+
 		except (MemoryError, KeyError, IndexError) as error:
-			open('../meta/error_log', 'a+').write(str(time.time())+ "\n\n"+ str(error))
+			open('../meta/error_log', 'a+').write("\n\n"+ str(error))
 			print("Error with scan {0} in coaddition script. Writing to error log. ".format(scan_id))
 			raise
-	consolidation_time_stop = time.time()
 	
-	lastcalc_start = time.time()
 	lastcalc = dt.datetime.now()
 	lastcalc = lastcalc.strftime('%Y-%m-%d %H:%M:%S')
-	object.chunk['last_change'][0] = str(lastcalc).encode()
-	last_calc_stop = time.time()
-
-	close_out_start = time.time()
-	#object.close_out(grand_spectra_group)
-	close_out_stop = time.time()
-	
-	
-	
-	
-	
-	
-	submeta = params['submeta']
-	if submeta['timeit']:
-		submeta['consolidation_time'].append(consolidation_time_stop-consolidation_time_start)
-		#submeta['scans_in_time'].append(scans_in_stop-scans_in_start)
-		#submeta['class_init_time'].append(class_init_stop-class_init_start)
-		submeta['optimal_weight_sum_consolidation_time'].append(opt_wght_sum_stop-opt_wght_sum_start)
-		submeta['model_excess_sqrd_consolidation_time'].append(nscans_stop-opt_wght_sum_stop)
-		submeta['nscan_consolidation_time'].append(SNR_stop-nscans_stop)
-		submeta['SNR_consolidation_time'].append(sigma_A_stop-SNR_stop)
-		submeta['sigma_A_consolidation_time'].append(power_dev_stop-sigma_A_stop)
-		submeta['power_deviation_consolidation_time'].append(coupl_sens_stop-power_dev_stop)
-		submeta['coupling_sensitivity_consolidation_time'].append(power_sens_stop-coupl_sens_stop)
-		submeta['power_sensitivity_consolidation_time'].append(noise_pow_stop-power_sens_stop)
-		submeta['noise_power_consolidation_time'].append(axion_fit_stop-noise_pow_stop)
-		submeta['axion_fit_consolidation_time'].append(axion_fit_sig_stop-axion_fit_stop)
-		submeta['axion_fit_significance_consolidation_time'].append(scans_start-axion_fit_sig_stop)
-		#submeta['scans_in_grand_spectra_addition_time'].append(scans_stop-scans_start)
-		submeta['last_calc_time'].append(last_calc_stop-lastcalc_start)
-		submeta['calculating_indices'].append(calculating_indices_stop-calculating_indices_start)
-		submeta['attaching_new_scan_to_class'].append(attaching_new_scan_to_class_stop-attaching_new_scan_to_class_start)
-		submeta['close_out'].append(close_out_stop-close_out_start)
-		#submeta['check_member_time'].append(check_member_stop-check_member_start)
-	
-
-	
-	"""
-	if add_subtract=='add':
-		inx_empty = numpy.where(chunk['scans_in'][...]==''.encode())[0] #array-like
-		inx_id = numpy.where(chunk['scans_out'][...]==scan_id.encode())[0] #array-like
-		if len(inx_empty)!=0:
-			chunk['scans_in'][inx_empty[0]]=scan_id.encode()
-		else:
-			addtodataset(chunk['scans_in'], scan_id.encode())
-		if len(inx_id)!=0:
-			chunk['scans_out'][inx_id[0]]=''.encode()
-		else:
-			pass
-			
-	elif add_subtract=="subtract":
-		inx_empty = numpy.where(chunk['scans_out'][...]==''.encode())[0] #array-like
-		inx_id = numpy.where(chunk['scans_in'][...]==scan_id.encode())[0] #array-like
-		if len(inx_empty)!=0:
-			chunk['scans_out'][inx_empty[0]]=scan_id.encode()
-		else:
-			addtodataset(chunk['scans_out'], scan_id.encode())
-		if len(inx_id)!=0:
-			chunk['scans_in'][inx_id[0]]=''.encode()
-		else:
-			pass
-	"""
+	object.chunk['last_change'][0] = str(lastcalc).encode()	
 	
 	
 def initialize_datapoints(chunk, scan, matched_indices):
@@ -624,37 +487,3 @@ def add_sub(self, a1, a2, op):
 		else:
 			a1[i]-+a2[i]
 	return a1
-		
-				
-	
-	
-	
-	
-"""
-#initialize attribute arrays to be populated (coadded)
-if self.op=="+":
-	growing_GS_start = time.time()
-	chunk = initialize_datapoints(chunk, scan, self.matched_indices) 
-	growing_GS_stop = time.time()
-	#Initialize any attributes not previously defined
-	reinit_GS_in_class_start = time.time()
-	self.chunk_axion_frequencies = chunk["axion_frequencies"][...]
-	self.matched_indices = self.frequency_index_matcher()
-	self.chunk_scan_number = chunk["scans"][...]
-	self.chunk_nscans = chunk["nscans"][...]
-	self.chunk_sigma_w = chunk["sigma_w"][...]
-	self.chunk_optimal_weight_sum = chunk["optimal_weight_sum"][...]
-	self.chunk_SNR = chunk["SNR"][...]
-	self.chunk_noise_power = chunk["noise_power"][...]
-	self.chunk_power_deviation = chunk["power_deviation"][...]
-	self.chunk_model_excess_sqrd = chunk["model_excess_sqrd"][...]
-	self.chunk_axion_fit = chunk["axion_fit"][...]
-	self.chunk_axion_fit_uncertainty = chunk["axion_fit_uncertainty"][...]
-	self.chunk_sensitivity_power = chunk["sensitivity_power"][...]
-	self.chunk_sensitivity_coupling = chunk["sensitivity_coupling"][...]
-	reinit_GS_in_class_stop = time.time()
-	
-elif self.op=="-":
-	print('subtracting')
-	subtractfromdataset(chunk['axion_frequencies'], scan['axion_frequencies'])
-"""

@@ -20,62 +20,39 @@ def bin_consolidator(digitizer_dataset, new_resolution):
 	scan = digitizer_dataset
 	if not new_resolution:
 		return "Error: new_resolution was not provided"
-	elif int(new_resolution)<=0:
+	elif float(new_resolution)<=0:
 		return "Error: new_resolution must be positive"
-	start_freq = scan["start_frequency"]
-	stop_freq = scan["stop_frequency"]
-	res = scan["frequency_resolution"]
-	freqs = np.asarray([start_freq + res*i for i in np.arange(start=0, stop=((stop_freq-start_freq)/res))])
+	
+	start_freq = float(scan.attrs["start_frequency"])
+	stop_freq = float(scan.attrs["stop_frequency"])
+	res = float(scan.attrs["frequency_resolution"])
+	freqs = np.arange(start_freq, stop_freq, res)
 	#unpack scan
-	freqs_ch1 = freqs
-	freqs_ch2 = freqs #ch2 defaults to ch1
 	power_spectrum_ch1 = scan[...]
-	power_spectrum_ch2 = power_spectrum_ch1
 
 	#divide old bins into new bins
 	rebinned_freqs_ch1 = []
-	rebinned_freqs_ch1.append(freqs_ch1[0] - freqs_ch1[0]%new_resolution)
-	rebinned_freqs_ch2 = []
-	rebinned_freqs_ch2.append(freqs_ch2[0] - freqs_ch2[0]%new_resolution)
+	rebinned_freqs_ch1.append(freqs[0] - freqs[0]%new_resolution)
 	rebinned_power_spectrum_ch1 = np.empty_like(power_spectrum_ch1)
-	rebinned_power_spectrum_ch2 = np.empty_like(power_spectrum_ch2)
 
 	#ch1
-	for i, val in enumerate(freqs_ch1):
+	for i, val in enumerate(freqs):
 		length = len(rebinned_freqs_ch1)
-		length2 = len(freqs_ch1)
+		length2 = len(freqs)
 		adj_freq = val
-		if i<length2-1:
-			adj_freq = freqs_ch1[i+1]
+		if i<length2-1: #If index is not the very last index
+			adj_freq = freqs[i+1]
 		else:
-			adj_freq = freqs_ch1[i-1]
+			adj_freq = freqs[i-1]
 			
 		res = val-adj_freq
-		if np.abs(val-rebinned_freqs_ch1[length])<= new_resolution/2.0:
+		if np.abs(val-rebinned_freqs_ch1[length-1])<= new_resolution/2.0:
 			rebinned_power_spectrum_ch1[i] += power_spectrum_ch1[i]/res
 		else:
-			rebinned_freqs_ch1.append(rebinned_freqs_ch1[length]+new_resolution)
-			rebinned_power_spectrum_ch1.append(power_spectrum_ch1[i]/res)
+			rebinned_freqs_ch1.append(rebinned_freqs_ch1[length-1]+new_resolution)
+			rebinned_power_spectrum_ch1 = np.append(rebinned_power_spectrum_ch1, power_spectrum_ch1[i]/res)
 	rebinned_power_spectrum_ch1 = rebinned_power_spectrum_ch1/new_resolution
 
-	#ch2
-	for i, val in enumerate(freqs_ch2):
-		length = len(rebinned_freqs_ch2)
-		length2 = len(freqs_ch2)
-		
-		adj_freq = val
-		if i<length2-1:
-			adj_freq = freqs_ch2[i+1]
-		else:
-			adj_freq = freqs_ch2[i-1]
-			
-		res = val - adj_freq
-		if np.abs(val - rebinned_freqs_ch2[length])<=new_resolution/2.0:
-			rebinned_power_spectrum_ch2[i] += power_spectrum_ch2[i]/res
-		else:
-			rebinned_freqs_ch2.append(rebinned_freqs_ch2[length]+new_resolution)
-			rebinned_power_spectrum_ch2.append(power_spectrum_ch2[i]/res)
-	rebinned_power_spectrum_ch2 = rebinned_power_spectrum_ch2/new_resolution
 
 	#deltas
 	if scan.attrs["deltas"] and scan.attrs["frequencies_deltas"]:
@@ -86,7 +63,7 @@ def bin_consolidator(digitizer_dataset, new_resolution):
 		rebinned_deltas = []
 		
 		for i, val in enumerate(freqs_deltas):
-			length = len(rebinned_freqs_deltas)
+			length = len(rebinned_freqs_deltas)-1
 			length2 = len(freqs_deltas)
 			adj_freq = val
 			if i<length2-1:
