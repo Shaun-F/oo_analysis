@@ -5,7 +5,7 @@ Created by: Erik Lentz
 Creation Date: 10/26/18
 """
 import time
-import os
+import os, sys
 def input(parameters):
 	# sets up start and stop parameters
 	start = int(parameters['start_scan'])
@@ -14,7 +14,7 @@ def input(parameters):
 	import h5py
 	import warnings
 	warnings.simplefilter(action='ignore', category=FutureWarning)
-	print("Loading hdf5 file and datasets")
+	print("\r Loading hdf5 file and datasets \r", end = '')
 	raw_data_filename = os.getcwd() + "/oo_analysis/data/raw/run1a_data.hdf5"
 	data_file = h5py.File(raw_data_filename.encode(), "r+")
 	
@@ -25,27 +25,31 @@ def input(parameters):
 	no_axion_log = []
 	counter = 0
 	partitioned = False
-	
+	print('\n\n')
 	try:
-		for key in range(start, stop) :
+		for key in range(start, stop):
 			try:
-				if key not in parameters['bad_scans']:
+				key_in_list = key in parameters['bad_scans']
+				
+				if not key_in_list:
 					dataset_toadd = data_file['digitizer_log_run1a'][str(key)]
 					if 'alog_timestamp' in dataset_toadd.attrs:
 						dig_dataset[str(key)] = dataset_toadd
 						counter += 1
 					if not 'alog_timestamp' in dataset_toadd.attrs:
 						no_axion_log.append(str(key))
-			except KeyError:
+				else:
+					pass
+			except KeyError as err:
 				pass
 			if counter>=parameters['partition']:
 				partitioned = True
 				break
-
 	except Exception as error:
 		data_file.close()
-		open('../meta/error_log', 'a+').write(str(time.time())+ "\n\n"+ str(error))
+		open(os.getcwd() + '/oo_analysis/meta/error_log', 'a+').write(str(time.time())+ "\n\n"+ str(error))
 		raise
+	
 	return dig_dataset, data_file, no_axion_log, partitioned
 
 def add_input(database,trait,trait_name):
@@ -65,3 +69,4 @@ def add_input(database,trait,trait_name):
 			print("Error with adding input (key {0}, trait {1}, trait_name {2}".format(key, trait, trait_name))
 			open('../meta/error_log', 'a+').write(str(time.time())+ "\n\n"+ str(error))
 			raise
+			

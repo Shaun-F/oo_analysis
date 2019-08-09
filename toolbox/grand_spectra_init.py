@@ -1,9 +1,9 @@
 def initialization(chunk):
 	#Initialize all datasets with empty containers
 	import numpy
-	datanames_zeroed=['sigma_w', 'optimal_weight_sum', 'noise_power', 'model_excess_sqrd','axion_fit', 'axion_fit_significance', 'power_deviation', 'nscans', 'SNR']
+	datanames_zeroed=['sigma_w', 'optimal_weight_sum', 'noise_power', 'model_excess_sqrd', 'axion_fit_significance', 'power_deviation', 'nscans', 'SNR']
 	stringnames=['scans', 'scans_in', 'scans_out']
-	datanames_inf = ['axion_fit_uncertainty', 'sensitivity_power', 'sensitivity_coupling']
+	datanames_inf = ['axion_fit_uncertainty', 'sensitivity_power', 'sensitivity_coupling','axion_fit']
 	
 	
 	init_data = numpy.arange(start = 644*10**6, stop = 682*10**6, step = 95.4)

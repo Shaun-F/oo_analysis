@@ -139,13 +139,13 @@ class transformer():
 		Converts input timestamps into astropy time objects. Input type can be string, list, numpy array, or dictionary
 		"""
 		if isinstance(timestamp, str):	
-			times = astropy.time.Time(numpy.asarray([parse(timestamp)])) 
+			times = astropy.time.Time(numpy.asarray([parse(timestamp, dayfirst=True)])) 
 		
 		elif isinstance(timestamp, list) or isinstance(timestamp, numpy.ndarray):
-			times = astropy.time.Time(numpy.asarray([parse(x) for x in timestamp]))
+			times = astropy.time.Time(numpy.asarray([parse(x, dayfirst=True) for x in timestamp]))
 		
 		elif isinstance(timestamp, dict):
-			times = astropy.time.Time(numpy.asarray([parse(x) for x in timestamp.values()]))
+			times = astropy.time.Time(numpy.asarray([parse(x, dayfirst=True) for x in timestamp.values()]))
 		
 		return times
 

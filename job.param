@@ -8,10 +8,10 @@
 #Minimum digitizer number = 388518
 #Maximum digitizer number = 561150
 
-signal='SHM'
-pec_vel='solar'
-filter='SG'
-filter_params={}
+signal='axionDM_w_baryons'
+pec_vel='earth rotation'
+filter='RCHPF'
+filter_params={'npairs':5}
 nbins=256
 
 pull_data='true'

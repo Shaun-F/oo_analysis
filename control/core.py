@@ -34,48 +34,40 @@ class core_analysis():
 		self.output_file = current_dir + "/oo_analysis/output/grand_spectra.dat"
 		self.error_file = current_dir + "/oo_analysis/meta/error_log"
 		
-		params = parser(run_definitions_filename)
+		self.params = parser(run_definitions_filename)
         # set switches of analysis
         # default
-		
+		self.make_plots = False
         # from param file
 		
 		#parse command line arguments
-		self.make_plots=False
 		if args!=None:
-			reset = args.clear_grand_spectra
-			start_scan = args.start_scan
-			end_scan = args.end_scan
-			self.make_plots = args.make_plots
-		
-			#store defaults
-			if start_scan!='':
-				params['start_scan']=start_scan
-			if end_scan!='':
-				params['end_scan']=end_scan
-			if reset and 'grand_spectra_run1a' in self.h5py_file.keys():
-				del self.h5py_file['grand_spectra_run1a']	
+			args_dict = vars(args)
+			[setattr(self, key, args_dict[key]) for key in list(args_dict.keys())]
+			self.params['start_scan'] = self.start_scan
+			self.params['end_scan'] = self.end_scan
 		
 		#add class attributes
 		for arg, val in kwargs.items():
-			if arg in params.keys():
-				params[str(arg)] = val
-				
-		for key,value in params.items(): # for python 3.x
+			if arg in self.params.keys():
+				self.params[str(arg)] = val
+		
+		run_definitions_string = " Run Definitions: \n \t filter = {0} \n \t signal = {1} \n \t annual modulation = {2} \n \t resolution type = {3} \n \t starting scan = {4} \n \t ending scan = {5} \n ".format(self.params['filter'], self.params['signal'], self.params['pec_vel'], self.params['restype'], self.params['start_scan'], self.params['end_scan'])
+		print(run_definitions_string)		
+		
+		for key,value in self.params.items(): # for python 3.x
 			setattr(self,key,value)
-			
 		#find bad scans saved to file
 		self.bad_scans_file = open(self.bad_scans_filename, 'r')
-		self.bad_scans = self.bad_scans_file.read().splitlines()
-		params['bad_scans'] = self.bad_scans	
-			
+		self.bad_scans = list(map(int, self.bad_scans_file.readlines()))
+		self.params['bad_scans'] = self.bad_scans
+		
         # set data structures
 		from oo_analysis.data import input, add_input
 		pulldata_start = time.time()
-		self.dig_dataset, self.h5py_file, self.no_axion_log, self.partitioned = input(params)
+		self.dig_dataset, self.h5py_file, self.no_axion_log, self.partitioned = input(self.params)
 		self.keys = [copy.deepcopy(i) for i in self.dig_dataset.keys() if i not in self.no_axion_log] #Was originally dig_dataset,but some digitizer logs didnt have associated axion logs.
 		pulldata_stop = time.time()
-		
 		
 		print("Loading data successful. It took {0:0.3f} seconds. Beginning analysis of {1} scans".format((pulldata_stop-pulldata_start), len(self.keys)))
 		if self.partitioned:
@@ -96,9 +88,12 @@ class core_analysis():
 		self.Q = {key: float(copy.deepcopy(self.dig_dataset[key].attrs["Q"])) for key in self.keys} #quality factor during scan
 		self.notes = {key: copy.deepcopy(self.dig_dataset[key].attrs["notes"]) for key in self.keys} #notes attached to scan
 		self.errors = {key: copy.deepcopy(self.dig_dataset[key].attrs['errors']) for key in self.keys} #errors attached to scan
-
-		add_input(self.dig_dataset,self.Tsys,'Tsys')
+		self.int_times = {key: float(copy.deepcopy(self.dig_dataset[key].attrs['integration_time'])) for key in self.keys}
+		self.bad_scans = {key: self.dig_dataset[key] for key in self.keys if self.dig_dataset[key].attrs['cut']} #Dict containing bad datasets
 		
+		add_input(self.dig_dataset,self.Tsys,'Tsys')
+		if args!=None and self.clear_grand_spectra and 'grand_spectra_run1a' in self.h5py_file.keys():
+			del self.h5py_file['grand_spectra_run1a']
 		# derive necessary digitization structures??
 		
 		#Import axion frequencies to inject
@@ -109,23 +104,23 @@ class core_analysis():
 		# metadata (bad scans, etc.)
 
         # other definitions
-		self.bad_scan_criteria = {'Tsys': 5.0,                                                               #Place holder value. Update bound?
-         'timestamps': self.h5py_file["bad_timestamps_run1a"][...], #array-like
-         'freq_low':644.9, 'freq_top':680.1,
-         'notes_neq':("nan","filled_in_after_SAG"),
-		 'Q':10**6,
-		 'bad_logging': self.no_axion_log,
-		 'errors': ("", 
-					'nan', 
-					np.nan,
-					' cannot get spectrum while acquiring',
-					' cannot get spectrum while acquiring ca',
-					' cannot start run, already acquiring',
-					' cannot start run, already acquiring ca',
-					'SetPowerupDefaultsPX4 in setup(): Phase'
-					) #This tuple of errors is ok. If scan has any of these errors, analysis will still be performed
-		 }
-		 
+		self.bad_scan_criteria = {'Tsys_bounds': (0.2,5.0),                							#Temperature bounds (lower, upper)
+									'freq_bounds':(640.0,685.0),							#Frequency bounds (lower, upper). Bounds placed by run1a definition
+									'Q_bounds':(10000,70000),                          				#Q bounds (lower, upper). Bounds retrieved from run1a_definitions.yaml
+									'bad_timestamps': self.h5py_file["bad_timestamps_run1a"][...], #array-like
+									'good_notes':("nan","filled_in_after_SAG"),
+									'bad_logging': self.no_axion_log,
+									'good_errors': ("", 
+												'nan', 
+												np.nan,
+												' cannot get spectrum while acquiring',
+												' cannot get spectrum while acquiring ca',
+												' cannot start run, already acquiring',
+												' cannot start run, already acquiring ca',
+												'SetPowerupDefaultsPX4 in setup(): Phase'
+												) 													#This tuple of errors is ok. If scan has any of these errors, analysis will still be performed
+									 }
+				 
 		
 		
 		
@@ -137,24 +132,29 @@ class core_analysis():
 
 	def execute(self, timeit=False):
 		try:
+			bad_scans = self.collect_bad_scans()
 			#Catch zero scan analysis
-			if len(self.keys)==0:
+			if len(self.keys)==0 or not bad_scans:
 				print("No scans to analyze")
+				self.h5py_file.close()
 				try:
 					sys.exit(0)
 				except SystemExit:
 					os._exit(0)
 			
 			# set all calculations in motion			
-			self.collect_bad_scans()
+			
+			
 			import oo_analysis.signals
-			self.signal_dataset = oo_analysis.signals.generate(self)
+			self.signal_dataset = oo_analysis.signals.generate(self)			
 			
 			import oo_analysis.analysis
 			
 			self.analysis_start=time.time()
-			self.grand_spectra_group, ncut = oo_analysis.analysis.grand_spectra(self)
+			self.grand_spectra_group, self.candidates, ncut = oo_analysis.analysis.grand_spectra(self)
 			self.analysis_stop=time.time()
+			
+			
 			
 			#import MCMC
 			# perform MCMC analysis
@@ -162,8 +162,7 @@ class core_analysis():
 			
 			#import analytics
 			
-			
-			# generate plots
+
 
 		except (KeyError, TypeError, SyntaxError) as error:
 			self.h5py_file.close() #prevent corruption on break
@@ -178,7 +177,7 @@ class core_analysis():
 			except SystemExit:
 				os._exit(0)
 		finally:
-			#save analysis to disk and close out file
+			#save analysis to disk, generate plots, and close out file
 			string="Analysis of {0} scans took {1:0.3f} seconds. \tOf those scans, {2:d} were cut".format(len(self.keys),  self.analysis_stop-self.analysis_start, ncut)
 			print(string)
 			self.output()
@@ -199,53 +198,84 @@ class core_analysis():
 		# collecting metadata for later analysis
 		# may want to set up to run through only one or a set of conditions
 		# should also try to make dynamics so that it only tries new conditions
+		print("Collecting bad scans                        \r", end='')
+		
+		#Get bad scan criteria
+		condition = self.bad_scan_criteria
+		Q_bounds = condition["Q_bounds"]
+		freq_bounds = condition["freq_bounds"]
+		Tsys_bounds = condition["Tsys_bounds"]
+		bad_timestamps = condition["bad_timestamps"]
+		good_notes = condition["good_notes"]
+		bad_logging = condition["bad_logging"]
+		good_errors = condition["good_errors"]
+		counter = 1
+		N_iter = len(self.keys)
+		bad_scans = []
+		contains_good_scans=False
 		for key in self.keys: # python 3.x
 			try:
-				if key not in self.bad_scans:
-					cut = False
-					cut_reason = ""
-					condition = self.bad_scan_criteria
-					if self.timestamp[key] in condition["timestamps"]:
-						cut=True
-						cut_reason = "Scan not suitable for analysis (Bad timestamp)"
-						self.bad_scans.append(key)
-					if self.Q[key]>condition["Q"]:
-						cut=True
-						cut_reason = "exceeding Q bound"
-						self.bad_scans.append(key)
-					elif self.fstart[key]<condition["freq_low"] or self.fstop[key]<condition["freq_low"] or self.fstart[key]>condition["freq_top"] or self.fstop[key]>condition["freq_top"]:
-						cut=True
-						cut_reason = "scan outside 645 to 685 MHz range"
-						self.bad_scans.append(key)
-					elif self.Tsys[key]>condition["Tsys"]:
-						cut=True
-						cut_reason = "System temperature over bound"
-						self.bad_scans.append(key)
-					elif self.notes[key] in condition["notes_neq"]:
-						cut=True
-						cut_reason = "Scan not suitable for analysis (See dataset notes)"
-						self.bad_scans.append(key)
-					elif key in condition['bad_logging']:
-						cut=True
-						cut_reason = "No associated axion log"
-						self.bad_scans.append(key)
-					elif self.errors[key] not in condition['errors'] and not pd.isnull(self.errors[key]):
-						cut = True
-						cut_reason = "See errors"
-						self.bad_scans.append(key)
-					
-					self.dig_dataset[key].attrs["cut"] = cut
-					self.dig_dataset[key].attrs["cut_reason"] = cut_reason
+				cut = False
+				cut_reason = ""
+				
+									
+				#Get scan attributes
+				timestamp = self.timestamp[key]
+				Q = self.Q[key]
+				fstart = self.fstart[key]
+				fstop = self.fstop[key]
+				Tsys = self.Tsys[key]
+				notes = self.notes[key]
+				errs = self.errors[key]
+
+				#Compare scan attributes and bad scan criteria
+				if key in self.bad_scans:
+					cut = True
+					cut_reason = "Scan marked as bad scan in bad_scans.dat"
+				elif timestamp in bad_timestamps:
+					cut=True
+					cut_reason = "Scan not suitable for analysis (Bad timestamp)"
+					self.bad_scans.append(key)
+				elif not ((Q>Q_bounds[0])&(Q<Q_bounds[1])): #If Q lies outside Q bounds, cut scan
+					cut=True
+					cut_reason = "exceeding Q bound"
+					self.bad_scans.append(key)
+				elif ((fstart<freq_bounds[0])|(fstart>freq_bounds[1])) or ((fstop<freq_bounds[0])|(fstop>freq_bounds[1])):
+					cut=True
+					cut_reason = "scan outside 645 to 685 MHz range"
+					self.bad_scans.append(key)
+				elif ((Tsys>Tsys_bounds[1])|(Tsys<Tsys_bounds[0])):
+					cut=True
+					cut_reason = "exceeding system temperature bound"
+					self.bad_scans.append(key)
+				elif notes not in good_notes and not pd.isnull(notes):
+					cut=True
+					cut_reason = "Scan not suitable for analysis (See dataset notes)"
+					self.bad_scans.append(key)
+				elif key in bad_logging:
+					cut=True
+					cut_reason = "No associated axion log"
+					self.bad_scans.append(key)
+				elif errs not in good_errors and not pd.isnull(errs):
+					cut = True
+					cut_reason = "See errors"
+					self.bad_scans.append(key)
 				elif key in self.bad_scans:
 					cut = True
-					cut_reason = "Check bad scans file"
-					self.dig_dataset[key].attrs['cut']=cut
-					self.dig_dataset[key].attrs['cut_reason']=cut_reason
+					cut_reason = "Scan marked as bad scan in bad_scans.dat"
+				if not cut:
+					contains_good_scans=True
+				self.dig_dataset[key].attrs["cut"] = cut
+				self.dig_dataset[key].attrs["cut_reason"] = cut_reason
+				bad_scans.append(cut)
 			except (RuntimeError, KeyError) as error:
 				print("\n\nError with scan {0}.".format(key))
 				open(self.error_file, 'a+').write("\n\n"+ str(error))
 				raise
-		return None
+			if int(counter/N_iter*100)-counter/N_iter*100<10**(-8):
+				print("Collecting bad scans ({0} % complete) \r".format(int((counter/N_iter)*100)), end='')
+			counter+=1
+		return contains_good_scans
 
 	def collect_meta_data(self):
 		# collects summary data on each scan for decision-making and
@@ -270,18 +300,18 @@ class core_analysis():
 		"""
 		
 		from oo_analysis.figures.plotter import figures_class
-		save_dir = "C:/users/drums/documents/coding software/python/scripts/New-Analysis-Scheme/oo_analysis/figures"
-		kwargs = {"Tsys": list(self.Tsys.values()), "timestamp":list(self.timestamp.values()), "mode_frequencies": list(self.mode_frequencies.values())}
+		save_dir = os.getcwd() + "/oo_analysis/figures"
+		kwargs = {"Tsys": list(self.Tsys.values()), "timestamp":list(self.timestamp.values()), "mode_frequencies": list(self.mode_frequencies.values()), "params": self.params}
 		
+		print("Generating plots")
 		fig_cl = figures_class(save_dir)
-		fig_cl.temp_v_freq(**kwargs)
-		fig_cl.temp_v_time(**kwargs)
 		fig_cl.deltas(**kwargs)
+		fig_cl.fit_significance(**kwargs)
 		fig_cl.candidates()
-		fig_cl.sensitivity_DM()
-		fig_cl.sensitivity_power()
-		fig_cl.sensitivity_coupling()
-		fig_cl.SNR()
+		fig_cl.sensitivity_DM(**kwargs)
+		fig_cl.sensitivity_power(**kwargs)
+		fig_cl.sensitivity_coupling(**kwargs)
+		fig_cl.SNR(**kwargs)
 	
 	def update_astronomical_tables(self):
 		curr_time = dt.datetime.now()

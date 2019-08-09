@@ -34,11 +34,13 @@ from oo_analysis.toolbox.DFT import DFT, IDFT
 
 
 ##Plotting software
+import matplotlib
 from oo_analysis.toolbox.plot_dataset import plotter
 import matplotlib.pyplot as plt
 import pandas as pd
 
 ##
+plt.style.use('fast')
 
 
 os.environ["PYOPENCL_COMPILER_OUTPUT"] = "1" #Output pyopencl compiler messages
@@ -64,7 +66,6 @@ def reciprocated_clone_hpf(data, npairs, return_parsed_data = False, sigma=None,
 	errors = {'maxed_filter_size':False}
 	
 	#if (numpy.mean(data)-data[0])>numpy.std(data): 
-	ORIG[0]=numpy.mean([ORIG[1], ORIG[2], ORIG[3]]) # Some spectra have odd behavior at beginning of scan, i.e. a single downward spike at the beginning position. I just set a default value
 	while len(ORIG)<256: #For some reason, some datasets dont have 2**8 elements.
 		ORIG = numpy.append(ORIG[-1], ORIG)
 	
@@ -82,21 +83,12 @@ def reciprocated_clone_hpf(data, npairs, return_parsed_data = False, sigma=None,
 
 	if sigma==None:
 		sigma = calc_filter_size(ORIG, appended_ORIG,n)
-	
 	"""
 	if sigma>300: #Arbitrary cut-off to prevent poor filtering
 		print("Ceiling of reciprocated clone hpf reached (sigma={0:0.5f})".format(sigma))
 		with open('../meta/BS_errors.txt', 'a+') as f:
 			f.write("Background subtraction filter size maxed out with scan {0} (sigma={1:0.5f})\n".format(scan_number, sigma))
 		sigma=2**8
-	"""
-		
-
-	"""
-	tophat = [0]*szA # Generate tophat function to pick out lower frequency structure
-	for i in range(int(sigma)):
-		tophat[i]=1
-		tophat[szA-i-1] = 1
 	"""
 	
 	#experimental tophat
@@ -115,11 +107,8 @@ def reciprocated_clone_hpf(data, npairs, return_parsed_data = False, sigma=None,
 	#pick out the original signal
 	
 	pickORIG = [0]*len(ORIG)
-	if n%2==1: #calculate which part of the array to pick out. if n is odd, pick out the original scan to the left of the center of the array. if n is even, pick out the middle
-		l=n
-	elif n%2==0:
-		l=n+1
-		
+	
+	l = n + (n+1)%2#calculate which part of the array to pick out. if n is odd, pick out the original scan to the left of the center of the array. if n is even, pick out the middle
 	for i in range(len(ORIG)):
 		pickORIG[i] = BS_fft_appended_ORIG[(l*len(ORIG)+i)]
 
@@ -208,12 +197,15 @@ def calc_filter_size(arr, extended_arr,n):
 
 	#frac_delta = lambda arr: (numpy.max(arr)-numpy.min(arr))/(numpy.max(arr)+numpy.min(arr))
 	
+	
 	delta = lambda arr: (numpy.max(arr)-numpy.mean(arr))
 	arg_delta = lambda arr: numpy.abs((numpy.argmax(arr)-numpy.argmin(arr)))	
+	
 	sigma_func = lambda arr: (delta(arr)/numpy.std(arr[:10]))**(1/2)
+	
 	ext_ORIG_corr = numpy.correlate(extended_arr-numpy.mean(extended_arr), extended_arr-numpy.mean(extended_arr), 'full')
 	
-	
+	"""
 	#plt.plot(ORIG_corr); plt.show(); plt.plot(extended_array); plt.show();
 
 	#Find width of structure using the autocorrelation
@@ -222,9 +214,8 @@ def calc_filter_size(arr, extended_arr,n):
 	peaks_rem = numpy.delete(peaks, numpy.where(peaks==primary_peak))
 	secondary_peak = peaks_rem[numpy.max(numpy.where(ext_ORIG_corr[peaks_rem]==numpy.max(ext_ORIG_corr[peaks_rem]))[0])]
 	width = numpy.abs(secondary_peak-primary_peak)
-	
-	test_corr = ext_ORIG_corr[len(extended_arr)-1:]
-	test_width = numpy.where(numpy.diff(numpy.sign(test_corr)))[0][0]
+	"""
+	test_corr = ext_ORIG_corr[len(extended_arr)-1:][512:]
 	
 	width_line = (numpy.max(test_corr)-numpy.min(test_corr))/2 + numpy.min(test_corr)
 	subtracted = test_corr - width_line
@@ -232,26 +223,15 @@ def calc_filter_size(arr, extended_arr,n):
 	if test_width<12: #Signal is probably mainly noise
 		test_width=10**9 
 	
+		
 	
+	noise_to_significant_structure = numpy.tanh(sigma_func(arr)-1)**6
+	higher_modes_factor = 200
 	
-	
-	
-	width_factor = 1/numpy.tanh(width/(512/2))
-	
-	sigma = sigma_func(arr)*width_factor*2
-	
-	noise_to_significant_structure = numpy.tanh(sigma_func(arr)-1)**4
-	higher_modes_factor = 120
-	
-	mode = ((2*numpy.pi/width))*(n*2+1)*higher_modes_factor*noise_to_significant_structure
-
-	vratio = lambda arr: (numpy.max(arr)-numpy.min(arr))/(numpy.max(arr)+numpy.min(arr))
-	wratio = lambda arr:  numpy.abs(numpy.argmax(arr) - numpy.argmin(arr))
-	
-	test_sigma = vratio(arr)/wratio(arr)*(2*n+1)*higher_modes_factor*noise_to_significant_structure
 	test_width_sigma = ((2*numpy.pi/test_width))*(n*2+1)*higher_modes_factor*noise_to_significant_structure
-
+	
 	return test_width_sigma
+
 
 
 
@@ -269,6 +249,7 @@ def calc_filter_size(arr, extended_arr,n):
 #Scripts for analyzing different background subtraction methods
 ####################################
 
+what_kind_of_structure = 'Significant' # Benign or Significant
 
 #############
 #savedir = "C:/Users/drums/Documents/ADMX/Papers/Own Papers/Plots and Graphics/Bsub/MyBSub/"
@@ -289,20 +270,13 @@ df = 95.4 #Bin Size
 start = rest_energy/h - nbins*df/2
 stop = start + nbins*df
 bins = [start + df*i for i in range(nbins)]
+def ADMX_signal_model(freq, rest_energy):
+	freq = numpy.array(freq)
+	from oo_analysis.signals.signal_lib import signal
+	cl = signal()
+	dist = cl.axionDM_w_baryons(freq*10**(-6), mod_vel = 30, v_sol = 220, mass = rest_energy)
 
-def ADMX_signal_model(freq,exp_pow,poly_pow,temp):
-    if freq<=rest_energy/h:
-        return 0.0
-    else:
-        pass
-    sig = temp*rest_energy/h
-    nuosig = (freq-rest_energy/h)/sig
-    gamma = math.gamma((1.0+poly_pow)/exp_pow)
-    Cnum = exp_pow
-    Cden = ((1.0/(sig))**exp_pow)**(-(1.0+poly_pow)/exp_pow)*(1.0/sig)**(poly_pow)*gamma
-    C = Cnum/Cden
-    dist = C*(nuosig)**poly_pow*numpy.exp(-(nuosig)**exp_pow)
-    return dist
+	return numpy.asarray(dist)
 signal_strength = 0.15/3 # Level to be recoverable with ~20 scans at SNR=3
 params = [1.4,0.37,4.7e-7]
 
@@ -312,10 +286,19 @@ dispersion_array = [["sg"],["bs"],["poly"],["noise"]]
 power_spec_array = [["sg"],["bs"],["poly"],["noise"]]
 axion_signal_array = []
 autocorr_array = [[],[],[],[]]
-savedir = "D:/Users/shaun/Documents/Coding Software/Python/Scripts/New-Analysis-Scheme/oo_analysis/figures/Background_sub_testing/"
+savedir = "D:/Users/shaun/Documents/Coding Software/Python/Scripts/New-Analysis-Scheme/oo_analysis/figures/Background_sub_testing/" + what_kind_of_structure +"_Structure/"
 
 def generate_signal(with_signal=True, noise_only=False, **kwargs):
-
+	if what_kind_of_structure=='Benign':
+		mult = 0
+	elif what_kind_of_structure=='Significant':
+		mult=1
+	else:
+		print("Structure type not recognized")
+		try:
+			sys.exit(0)
+		except SystemExit:
+			os._exit(0)
 	level = 1
 	signal_strength = 0.05/3 # Level to be recoverable with ~20 scans at SNR=3
 	params = [1.4,0.37,4.7e-7]
@@ -335,9 +318,11 @@ def generate_signal(with_signal=True, noise_only=False, **kwargs):
 	ress = []
 	for i in range(nsamp):
 		ress.append([rand_hot_rod(x) for x in bins])
-	background = numpy.ones((nsamp, nbins)) + numpy.array(polys) + numpy.array(ress)
-	
-	single_signal = numpy.array([signal_strength*df*ADMX_signal_model(x, params[0], params[1], params[2]) for x in bins])
+	background = numpy.ones((nsamp, nbins)) + numpy.array(polys) + numpy.array(ress)*mult
+	axion_power = (2.09*10**(-22))*0.4*(rest_energy/h/(750*10**6))*(50000/70000)
+
+	normalized_kernel = ADMX_signal_model(bins, rest_energy)
+	single_signal = axion_power*normalized_kernel*signal_strength*df
 	signals = numpy.array([single_signal for i in range(nsamp)])
 	#Create noise test signals
 	noise = 0.01*numpy.random.rand(nsamp, nbins)
@@ -355,22 +340,22 @@ def generate_signal(with_signal=True, noise_only=False, **kwargs):
 	return toreturn
     
 def analysis(scan = [], noise_only=False,**kwargs):
-
+	from oo_analysis.filters.backsub_filters_lib import poly_fit, SG
 	#Generate artificial data and push it through background subtraction functions
 	generated_signal = generate_signal(noise_only = noise_only, **kwargs)
 	sample_scan = generated_signal["Combined signal"]
 	sample_noise = generated_signal["noise"]
 	sample_backgrounds = generated_signal["backgrounds"]
 	if len(scan)!=0:
-		BS_res = reciprocated_clone_hpf(scan, 3,  testing_subdir="BS_Analysis_runs/", pure_noise = sample_noise, **kwargs)
-		BS_scan = BS_res
-		Poly_scan = poly_fit(scan) 
-		SG_scan = SG(scan)
+		BS_res = reciprocated_clone_hpf(scan, 3,  testing_subdir="BS_Analysis_runs/", pure_noise = sample_noise,return_parsed_data = True, **kwargs)
+		BS_scan = BS_res['filtereddata']
+		Poly_scan = poly_fit(scan)['filtereddata']
+		SG_scan = SG(scan)['filtereddata']
 	else:
-		BS_res = reciprocated_clone_hpf(sample_scan, 3,  testing_subdir="BS_Analysis_runs/", pure_noise = sample_noise, **kwargs)
-		BS_scan = BS_res
-		Poly_scan = poly_fit(sample_scan) 
-		SG_scan = SG(sample_scan)
+		BS_res = reciprocated_clone_hpf(sample_scan, 3,  testing_subdir="BS_Analysis_runs/", pure_noise = sample_noise, return_parsed_data= True,  **kwargs)
+		BS_scan = BS_res['filtereddata']
+		Poly_scan = poly_fit(sample_scan)['filtereddata'] 
+		SG_scan = SG(sample_scan)['filtereddata']
 	nbins=len(sample_scan)
 	signals = numpy.asarray([sample_scan, BS_scan, Poly_scan, SG_scan])
 	
@@ -604,6 +589,8 @@ def controller(n, **kwargs):
 	plt.clf()
 	
 	
+	
+	
 	#cumulatively vertically add signals together 
 	SG_coadded_signal = []
 	BS_coadded_signal = []
@@ -630,6 +617,39 @@ def controller(n, **kwargs):
 		summed_array = [NOISE_coadded_signal[(i-1)][x]+power_spec_array[3][i][x] for x in numpy.arange(nbins)]
 		NOISE_coadded_signal.append(summed_array)
 	
+	#Sigma scaling for coadded signals
+	SG_sigma_scaling = []
+	BS_sigma_scaling = []
+	POLY_sigma_scaling = []
+	NOISE_sigma_scaling = []
+	SG_sigma_scaling = [numpy.std(cumsum/(inx+1)) for inx, cumsum in enumerate(numpy.cumsum(power_spec_array[0], axis=0))] #[numpy.std(numpy.sum(power_spec_array[0][:i+1])/(i+1)) for i in range(len(power_spec_array[0]))]
+	BS_sigma_scaling = [numpy.std(cumsum/(inx+1)) for inx, cumsum in enumerate(numpy.cumsum(power_spec_array[1], axis=0))] #[numpy.std(numpy.sum(power_spec_array[1][:i+1])/(i+1)) for i in range(len(power_spec_array[1]))]
+	POLY_sigma_scaling = [numpy.std(cumsum/(inx+1)) for inx, cumsum in enumerate(numpy.cumsum(power_spec_array[2], axis=0))] #[numpy.std(numpy.sum(power_spec_array[2][:i+1])/(i+1)) for i in range(len(power_spec_array[2]))]
+	NOISE_sigma_scaling = [numpy.std(cumsum/(inx+1)) for inx, cumsum in enumerate(numpy.cumsum(power_spec_array[3], axis=0))] #[numpy.std(numpy.sum(power_spec_array[3][:i+1])/(i+1)) for i in range(len(power_spec_array[3]))]
+	
+	fig = plt.figure()
+	ax = fig.add_subplot(111)
+	plt.title("Coadded Sigma Scaling")
+	plt.xlabel("Number of Scans")
+	plt.ylabel(r"$\sigma_{sample}$")
+	plt.plot(SG_sigma_scaling, color= 'blue', label='Savitzky-Golay')
+	plt.plot(BS_sigma_scaling, color= 'red', label='RCHPF')
+	plt.plot(POLY_sigma_scaling, color= 'green', label='6-order poly fit')
+	plt.plot(NOISE_sigma_scaling, color='black', label='Noise')
+	plt.yscale('log')
+	plt.xscale('log')
+	plt.ylim(ymax=2*10**(-2))
+	plt.ylim(ymin=10**(-5))
+	locmaj = matplotlib.ticker.LogLocator(base=10.0, numticks=15)
+	ax.yaxis.set_major_locator(locmaj)
+	#locmin = matplotlib.ticker.LogLocator(base=10.0, subs=(0.1,0.2,0.4,0.6,0.8,1,2,4,6,8,10 )) 
+	#ax.yaxis.set_minor_locator(locmin)
+	plt.tight_layout()
+	plt.legend()
+	plt.savefig(savedir + 'Coadded_sigma_scaling.pdf', dpi =600)
+	plt.clf()
+	
+	
 	BS_signal_cumul_atten = []
 	SG_signal_cumul_atten = []
 	POLY_signal_cumul_atten = []
@@ -651,7 +671,8 @@ def controller(n, **kwargs):
 	plotter(numpy.asarray(SG_signal_cumul_atten), title="Coadded SG signal atten", savedir = savedir +  "coadded_SG_signal_atten.pdf")
 	plotter(numpy.asarray(POLY_signal_cumul_atten), title="Coadded POLY signal atten", savedir = savedir +  "coadded_poly_signal_atten.pdf")
 	plotter(numpy.asarray(NOISE_signal_cumul_atten), title="Coadded NOISE signal atten", savedir = savedir +  "coadded_noise_signal_atten.pdf")
-		
+	
+	
 	
 	BS_autocorr_cumul = []
 	SG_autocorr_cumul = []

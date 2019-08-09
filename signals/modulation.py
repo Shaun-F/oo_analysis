@@ -19,9 +19,7 @@ class modulation():
 	def __init__(self,**params):
 		for key,param in params.items(): #python 3.x
 			setattr(self,key,param)
-		# sets up time, peculiar velocities, etc
-		self.sig_integ8_list = []
-		self.sig_mod_list = []
+		
 		return None
 	def executor(self):
 		"""
@@ -48,28 +46,31 @@ class modulation():
 				secondary[key] = getattr(self, key)
 				
 		signals = {}
-		timer = []
-		if isinstance(self.keys, list) or isinstance(self.keys, numpy.ndarray) or isinstance(self.keys, dict):
+		if isinstance(scans, list) or isinstance(scans, numpy.ndarray) or isinstance(scans, dict):
 			counter = 1
 			N_iter = len(self.keys)
 			for key in self.keys:
-				timestamp = timestamps[key]
-				if not isinstance(axion_mass, float):
-					a_mass = axion_mass[key]
+				if not scans[key].attrs['cut']: #No need to generate signals for scans that wont be analyzed
+					timestamp = timestamps[key]
+					if not isinstance(axion_mass, float):
+						a_mass = axion_mass[key]
+					else:
+						a_mass = axion_mass
+					signals[key] = self.modulatedsignal(timestamp, shape_model, a_mass, self.mod_vels[timestamp], **secondary)
+					if ('SIA',True) not in list(self.__dict__.items()):
+						if int(counter/N_iter*100)-counter/N_iter*100<10**(-8):
+							print("generating signals ({0} % complete)                 \r".format(int((counter/N_iter)*100)), end='')
+					counter+=1
 				else:
-					a_mass = axion_mass
-				signals[key] = self.modulatedsignal(modulation_type, timestamp, shape_model, a_mass, self.mod_vels[timestamp], **secondary)
-				if ('SIA',True) not in list(self.__dict__.items()):
-					if int(counter/N_iter*100)-counter/N_iter*100<10**(-8):
-						print("generating signals ({0} % complete) \r".format(int((counter/N_iter)*100)), end='')
-				counter+=1
-				
+					pass
 		else:
-			timestamp = timestamps
-			a_mass = axion_mass
-			signals[key] = self.modulatedsignal(modulation_type, timestamp, shape_model, a_mass, self.mod_vels[timestamp], **secondary)
-			print("Signal generation complete \r", end='')
-
+			if not scans.attrs['cut']:
+				scan_id = scans.name[-6:] #Name usually includes the directory too, so just splice out the 6-digit id
+				timestamp = timestamps[scan_id]
+				a_mass = axion_mass
+				signals[scan_id] = self.modulatedsignal(timestamp, shape_model, a_mass, self.mod_vels[timestamp], **secondary)
+			else:
+				pass
 		return signals
 		
 	# methods for incorporating several levels of peculiar velocities and other
@@ -95,7 +96,7 @@ class modulation():
 		else:
 			solar = tf_lib.transformer().solar_vel_GalacticFrame(timestamp)
 			if modulation_type=="solar":
-				return {time: [0,0,0] for time in timestamp}
+				return {time: [0,0,0] for time in list(timestamp.values())}
 			elif modulation_type=='earth orbit':
 				earth_vel = tf_lib.transformer().earth_vel_GalacticFrame(timestamp)
 				return {key: np.array(earth_vel[key]) - np.array(solar.get(key,0)) for key in list(solar.keys())}
@@ -103,7 +104,7 @@ class modulation():
 				experiment_vel = tf_lib.transformer().experiment_vel_GalacticFrame(timestamp)
 				return {key: np.array(experiment_vel[key]) - np.array(solar.get(key,0)) for key in list(solar.keys())}
 
-	def modulatedsignal(self, modulation_type, timestamp, shape_model, axion_mass, vel_mod, **kwargs):
+	def modulatedsignal(self, timestamp, shape_model, axion_mass, vel_mod, **kwargs):
 		"""
 		Description:Function bins a given velocity-modulated axion shape by integration.
 
@@ -155,7 +156,7 @@ class modulation():
 		cutoffarea = 0.92
 		
 
-		signal_cl = signal(self.__dict__)
+		signal_cl = signal(**self.__dict__)
 
 		#set default value for starting frequency
 		if 'startfreq' not in kwargs.keys():
@@ -173,7 +174,7 @@ class modulation():
 		if shape_model == "axionDM_w_baryons":
 			while sumbins<cutoffarea:
 				scanfreq = float(startfreq + (i)*(bin_width/3))*10**(-6)
-				binsize.append((signal_cl.axionDM_w_baryons(vel_mod, vsol, m, scanfreq)*(bin_width/3))[0])
+				binsize.append((signal_cl.axionDM_w_baryons(scanfreq, mod_vel = vel_mod, v_sol = vsol, mass = m)*(bin_width/3))[0])
 				if ((i+1)/3) == np.floor((i+1)/3) and i>0:
 					binned_signal.append(binsize[int(i-2)] + binsize[int(i-1)] + binsize[int(i)])
 					sumbins = sumbins + binned_signal[int(i/3)]
@@ -267,8 +268,10 @@ class modulation():
 		if len(finalsignal)>100: #upper bound on length of signal array to mitigate floating point error effects
 			finalsignal = finalsignal[:100]
 			
-		
-		signal_width = calc_signal_width(np.array(finalsignal))*bin_width
+		try:
+			signal_width = calc_signal_width(np.array(finalsignal))*bin_width #This is in hertz!
+		except IndexError:
+			print(finalsignal)
 		info = {'rest mass frequency':RMF, 
 				'shape': shape_model, 
 				'signal': np.asarray(finalsignal), 

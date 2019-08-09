@@ -20,7 +20,7 @@ import argparse
 
 class signal(object):
 	# want to be able to use as part of the mainstream analysis and as a library
-	def __init__(self,params):
+	def __init__(self,**params):
 		for key,param in params.items(): #python 3.x
 			setattr(self,key,param)
 		#callable = getattr(self,self.signal) # or whatever the rel. attr. is
@@ -126,7 +126,7 @@ class signal(object):
 		v_store[mask_complement] = 0 #If input frequency is less than the rest mass frequency, probability is zero (nonphysical)
 		return v_store
 
-	def axionDM_w_baryons(self, mod_vel, v_sol, mass, freq, timestamp=""):
+	def axionDM_w_baryons(self, freq, mod_vel=0, v_sol=220, mass=3*10**(-6), timestamp=""):
 		"""
 		Description: 
 			Function gives probability density for axion signal of Lentz et al. 2017
@@ -163,7 +163,6 @@ class signal(object):
 		beta = 1.39
 		T = 4.7*10**(-7)
 		gamma = special.gamma((1+alpha)/beta)
-		
 		
 		mask = np.where(f>f_o)
 		mask_complement = np.setdiff1d(range(len(f)), mask) #If input frequency is less than the rest mass frequency, probability is zero (nonphysical)

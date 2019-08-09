@@ -5,7 +5,7 @@ from reikna.fft import FFT as fftcl
 
 
 
-def DFT(inputsignal, shape = None):
+def DFT(inputsignal, shape=None):
 	"""
 	signal = numpy.array(inputsignal, dtype = numpy.complex128)
 	device = cl.get_platforms()[1].get_devices(device_type=cl.device_type.GPU)
@@ -24,10 +24,10 @@ def DFT(inputsignal, shape = None):
 	"""
 	inputsignal = numpy.array(inputsignal)
 	if shape==None:
-		shape = inputsignal.shape
+		shape=inputsignal.shape
 	return numpy.fft.fftn(inputsignal, shape)
 
-def IDFT(inputsignal, shape=None):
+def IDFT(inputsignal,shape=None):
 	"""
 	signal = numpy.array(inputsignal, dtype = numpy.complex128)
 	device = cl.get_platforms()[1].get_devices(device_type=cl.device_type.GPU)
@@ -47,5 +47,5 @@ def IDFT(inputsignal, shape=None):
 	"""
 	inputsignal = numpy.array(inputsignal)
 	if shape==None:
-		shape = inputsignal.shape
+		shape=inputsignal.shape
 	return numpy.fft.ifftn(inputsignal, shape)

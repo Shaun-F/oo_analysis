@@ -1,0 +1,9 @@
+Options:			Defaults:				Description:
+
+	-h				False					Lists this help page
+	-t				False					Time all subprocesses of the analysis
+	-cgs			False					Clear the current grand spectra and start from scratch
+	--start_scan	388518					Scan number to begin the analysis from
+	--end_scan		561150					Scan number to end the analysis at
+	-p				False					Generate plots at end of analysis
+	

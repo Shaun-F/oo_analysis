@@ -1,6 +1,5 @@
 """
 grand_analysis.py: generates grand spectraum for a number of significant figures
-
 Created By: Erik Lentz
 """
 from oo_analysis.analysis.coaddition import add_subtract_scan, scan_cl
@@ -76,16 +75,19 @@ class analyzer(object):
 		for i in add_sub_gen: #Iterate over the above generator
 			pass
 		
-		#Return the entire grand spectra group and the number of scans cut
-		return self.grand_spectra_group, len(np.where(list(cut.values()))[0])
+		#Candidate flagging
+		fit_significance = self.grand_spectra_group['axion_fit_significance'][...]
+		axion_frequencies = self.grand_spectra_group['axion_frequencies'][...]
+		candidate_mask = (fit_significance>3) 											#3-sigma cutoff
+		candidates = axion_frequencies[candidate_mask]
 		
-
-
-
-
-
-
-
-
-
-
+		
+		
+		#Return the entire grand spectra group and the number of scans cut
+		return self.grand_spectra_group, candidates, len(np.where(list(cut.values()))[0])
+		
+		
+		
+		
+		
+		

@@ -63,11 +63,11 @@ class axion_injector():
 			if self.bools[str(afreq)]:
 				amass_ev = (afreq*U.Hz*C.hbar).to(U.eV).value
 				kwargs = {'pec_vel': self.pec_vel, 
-							'timestamp':{self.dataset.name: self.timestamp}, 
+							'timestamp':{self.dataset.name[-6:]: self.timestamp}, 
 							'signal':self.signal, 
 							'axion_mass': amass_ev, 
 							'dig_dataset':self.dataset, 
-							'keys':[self.dataset.name],
+							'keys':[self.dataset.name[-6:]],
 							'SIA':True,
 							"meta_analysis":[False]}
 				signal_collection[str(afreq)] = [i['signal'] for i in list(mod(**kwargs).executor().values())] #Generate the signal for each timestamp.
@@ -104,9 +104,3 @@ class axion_injector():
 					pass
 		SIA_meta = {'signal_collection':self.signal_collection, 'is injected':self.bools}
 		return self.scan_data, SIA_meta
-
-
-
-
-
-

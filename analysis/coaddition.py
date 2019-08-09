@@ -29,74 +29,6 @@ class scan_cl(object):
 		#setup class definitions for chunk 
 		#pull only array of points from grand_spectra that line up with scan
 		self.chunk = chunk
-
-			
-		
-			
-	
-	def frequency_index_matcher(self):
-		"""
-		Function returns the indices of the scan and chunk where the frequencies match, up to a tolerance. First index is chunk frequencies and second index is scan frequencies
-		"""
-		tol =  49# Hz
-		cfreqs = self.chunk_axion_frequencies
-		sfreqs = self.scan['axion_frequencies']
-		two_indices = np.array([[],[]]) #first array is indices in chunk, second array is indices in scan
-		
-		si=None
-		ci=None
-		try:
-			if len(cfreqs)==0:
-				#if cfreqs is empty (initialized), return zero matching indices
-				return two_indices
-			
-			cmin = np.abs(sfreqs-cfreqs[0])
-			if cmin.min()<=tol:		#if sfreqs intersects beginning of cfreqs, set si equal to index where beginnin of cfreq intersect sfreqs
-				si = cmin.argmin()
-				
-			if si==None:
-					#if cfreqs intersects beginning of sfreqs, set ci equal to index where beginning of scan intersects cfreqs
-				smin = np.abs(cfreqs-sfreqs[0])
-				if smin.min()<=tol:
-					ci = smin.argmin()
-				
-						
-			if si!=None:
-				for sidx in range(len(sfreqs)):
-					#Iterate over sfreqs indices and insert the pair of indices, whose frequencies are within 'tol' of each other, into matching_indices
-					if (sidx-si)<0:
-						pass #Do nothing, since out of range of cfreq
-					elif not ((isinstance(sfreqs[sidx], float) or isinstance(sfreqs[sidx], int)) or  (isinstance(cfreqs[sidx-si+1], float) or isinstance(cfreqs[sidx-si+1], int))):
-						#do nothing
-						pass
-					else:
-						try:
-							if np.abs(sfreqs[sidx]-cfreqs[sidx-si])<=tol:
-								two_indices = np.insert(two_indices, 0, [sidx-si, sidx], axis=1)
-						except (IndexError, KeyError):
-							pass
-			elif ci!=None:
-				for sidx in np.arange(len(sfreqs)):
-					if (len(cfreqs)-1-ci+sidx)<0:
-						pass #Do nothing, since out of range of cfreq
-					elif not ((isinstance(sfreqs[sidx], float) or isinstance(sfreqs[sidx], int)) or (isinstance(cfreqs[sidx+ci], float) or isinstance(cfreqs[sidx+ci], int))):
-						#do nothing
-						pass
-					elif np.abs(sfreqs[sidx] - cfreqs[sidx+ci])<=tol:
-						two_indices = np.insert(two_indices, 0, [sidx+ci, sidx], axis=1)
-			elif ci==None and si==None:
-				return two_indices
-		except (IndexError, KeyError) as error:
-			print('frequency matcher failed at scan {0} with error: {1}'.format(self.scan_scan_number, error))
-			open(os.getcwd() + '/oo_analysis/meta/error_log', 'a+').write("\n\n"+ str(error))
-			raise
-
-		
-		#reorder nested lists into accending order
-		two_indices[0].sort(); two_indices[1].sort()
-		#first index is cfreqs, second is sfreqs
-		two_indices = [list(map(int, two_indices[0])), list(map(int, two_indices[1]))] # convert elements to integers for indexing
-		return numpy.asarray(two_indices)
 	
 	def axion_fit_consolidation(self, inx_start, inx_end):
 		"""
@@ -111,21 +43,12 @@ class scan_cl(object):
 			else:
 				axion_fit[i]=optimal_weight_sum[i]/model_excess_sqrd[i]
 		"""
-		return divider(self, self.chunk['optimal_weight_sum'][inx_start:inx_end], self.chunk['model_excess_sqrd'][inx_start:inx_end])
+		#return divider(self, self.chunk['optimal_weight_sum'][inx_start:inx_end], self.chunk['model_excess_sqrd'][inx_start:inx_end])
+
+		return inverse_quadrature(self, self.chunk['axion_fit'][inx_start:inx_end], self.scan['axion_fit'], self.op, -2)
 		
 	def axion_fit_significance_consolidation(self, inx_start, inx_end):
-		"""
-		AF = self.chunk_axion_fit
-		sigma_A = self.chunk_axion_fit_uncertainty
-		AFS = list(range(len(AF)))
-		for i in range(len(AFS)):
-			if AF[i]==0 and sigma_A[i]==0:
-				AFS[i]==0
-			elif AF[i]!=0 and sigma_A[i]==0:
-				AFS[i]=np.inf
-			else:
-				AFS[i] = AF[i]/sigma_A[i]
-		"""
+
 		return divider(self, self.chunk['axion_fit'][inx_start:inx_end], self.chunk['axion_fit_uncertainty'][inx_start:inx_end])
 	
 	def coupling_sensitivity_consolidation(self, inx_start, inx_end):
@@ -321,9 +244,7 @@ def add_subtract_scan(add_subtract, scan, object, scan_id, grand_spectra_group, 
 		object.op = "-"
 	else:
 		return "Error: combining operation not recognized. Available operations are 'add' and 'subtract'"
-		
-	#Running initiliazation procedure for chunks, i.e. create missing arrays.
-	#chunk = initialization(chunk) 									Not currently using.
+	
 	
 	corrupt_scan=False
 	if type(scan) is str:
@@ -357,15 +278,158 @@ def add_subtract_scan(add_subtract, scan, object, scan_id, grand_spectra_group, 
 			object.chunk['axion_fit_significance'][ainx_start:ainx_end] = object.axion_fit_significance_consolidation(ainx_start, ainx_end)
 
 		except (MemoryError, KeyError, IndexError) as error:
-			open('../meta/error_log', 'a+').write("\n\n"+ str(error))
+			open(os.getcwd() + '/oo_analysis/meta/error_log', 'a+').write("\n\n"+ str(error))
 			print("Error with scan {0} in coaddition script. Writing to error log. ".format(scan_id))
 			raise
+	
+	
 	
 	lastcalc = dt.datetime.now()
 	lastcalc = lastcalc.strftime('%Y-%m-%d %H:%M:%S')
 	object.chunk['last_change'][0] = str(lastcalc).encode()	
 	
 	
+
+
+	
+@jit
+def divider(self, a1, a2):
+	afit = list(range(len(a1)))
+
+	for i in range(len(a1)):
+		if a1[i]==0 and a2[i]==0:
+			afit[i]=0
+		elif a1[i]!=0 and a2[i]==0:
+			afit[i]=np.inf
+		else:
+			afit[i]=a1[i]/a2[i]
+	return afit
+	
+@jit
+def quadrature(self, a1, a2, op, pow):
+	for i in range(len(a1)):
+		if self.op=="+":
+			a1[i] = ((a1[i]**pow) + (a2[i]**pow))**(1/2)
+		else:
+			if (1/a1[i])<(1/a2[i]):
+				a1[i]==0
+			else:
+				a1[i] = ((a1[i]**pow) - (a2[i]**pow))**(1/2)
+	return a1
+
+@jit
+def inverse_quadrature(self, a1, a2, op, pow):
+	for i in range(len(a1)):
+		if self.op=="+":
+			a1[i] = ((a1[i]**pow) + (a2[i]**pow))**(-1/2)
+		else:
+			if (1/a1[i])<(1/a2[i]):
+				a1[i]==0
+			else:
+				a1[i] = ((a1[i]**pow) - (a2[i]**pow))**(-1/2)
+	return a1
+
+@jit
+def inverse_root_quadrature(self, a1, a2, op, pow):
+	for i in range(len(a1)):
+		if self.op=="+":
+			a1[i] = ((a1[i]**pow) + (a2[i]**pow))**(-1/4)
+		else:
+			if (1/a1[i])<(1/a2[i]):
+				a1[i]==0
+			else:
+				a1[i] = ((a1[i]**pow) - (a2[i]**pow))**(-1/4)
+	return a1
+
+@jit
+def add_sub(self, a1, a2, op):
+	for i in range(len(a1)):
+		if op=="+":
+			a1[i]+= a2[i]
+		else:
+			a1[i]-+a2[i]
+	return a1
+
+
+
+
+
+
+#################### Trash Yard #######################
+"""
+			
+		
+			
+	
+	def frequency_index_matcher(self):
+"""
+		#Function returns the indices of the scan and chunk where the frequencies match, up to a tolerance. First index is chunk frequencies and second index is scan frequencies
+"""
+		tol =  49# Hz
+		cfreqs = self.chunk_axion_frequencies
+		sfreqs = self.scan['axion_frequencies']
+		two_indices = np.array([[],[]]) #first array is indices in chunk, second array is indices in scan
+		
+		si=None
+		ci=None
+		try:
+			if len(cfreqs)==0:
+				#if cfreqs is empty (initialized), return zero matching indices
+				return two_indices
+			
+			cmin = np.abs(sfreqs-cfreqs[0])
+			if cmin.min()<=tol:		#if sfreqs intersects beginning of cfreqs, set si equal to index where beginnin of cfreq intersect sfreqs
+				si = cmin.argmin()
+				
+			if si==None:
+					#if cfreqs intersects beginning of sfreqs, set ci equal to index where beginning of scan intersects cfreqs
+				smin = np.abs(cfreqs-sfreqs[0])
+				if smin.min()<=tol:
+					ci = smin.argmin()
+				
+						
+			if si!=None:
+				for sidx in range(len(sfreqs)):
+					#Iterate over sfreqs indices and insert the pair of indices, whose frequencies are within 'tol' of each other, into matching_indices
+					if (sidx-si)<0:
+						pass #Do nothing, since out of range of cfreq
+					elif not ((isinstance(sfreqs[sidx], float) or isinstance(sfreqs[sidx], int)) or  (isinstance(cfreqs[sidx-si+1], float) or isinstance(cfreqs[sidx-si+1], int))):
+						#do nothing
+						pass
+					else:
+						try:
+							if np.abs(sfreqs[sidx]-cfreqs[sidx-si])<=tol:
+								two_indices = np.insert(two_indices, 0, [sidx-si, sidx], axis=1)
+						except (IndexError, KeyError):
+							pass
+			elif ci!=None:
+				for sidx in np.arange(len(sfreqs)):
+					if (len(cfreqs)-1-ci+sidx)<0:
+						pass #Do nothing, since out of range of cfreq
+					elif not ((isinstance(sfreqs[sidx], float) or isinstance(sfreqs[sidx], int)) or (isinstance(cfreqs[sidx+ci], float) or isinstance(cfreqs[sidx+ci], int))):
+						#do nothing
+						pass
+					elif np.abs(sfreqs[sidx] - cfreqs[sidx+ci])<=tol:
+						two_indices = np.insert(two_indices, 0, [sidx+ci, sidx], axis=1)
+			elif ci==None and si==None:
+				return two_indices
+		except (IndexError, KeyError) as error:
+			print('frequency matcher failed at scan {0} with error: {1}'.format(self.scan_scan_number, error))
+			open(os.getcwd() + '/oo_analysis/meta/error_log', 'a+').write("\n\n"+ str(error))
+			raise
+
+		
+		#reorder nested lists into accending order
+		two_indices[0].sort(); two_indices[1].sort()
+		#first index is cfreqs, second is sfreqs
+		two_indices = [list(map(int, two_indices[0])), list(map(int, two_indices[1]))] # convert elements to integers for indexing
+		return numpy.asarray(two_indices)
+		
+		
+		
+		
+		
+		
 def initialize_datapoints(chunk, scan, matched_indices):
 
 	#Determine the frequencies and indices of the scan that dont intersect the chunk frequencies.
@@ -428,62 +492,4 @@ def initialize_datapoints(chunk, scan, matched_indices):
 			addtodataset(chunk['axion_frequencies'], sfreqs[i], position=pos)
 		
 	return chunk
-
-	
-@jit
-def divider(self, a1, a2):
-	afit = list(range(len(a1)))
-
-	for i in range(len(a1)):
-		if a1[i]==0 and a2[i]==0:
-			afit[i]=0
-		elif a1[i]!=0 and a2[i]==0:
-			afit[i]=np.inf
-		else:
-			afit[i]=a1[i]/a2[i]
-	return afit
-	
-@jit
-def quadrature(self, a1, a2, op, pow):
-	for i in range(len(a1)):
-		if self.op=="+":
-			a1[i] = ((a1[i]**pow) + (a2[i]**pow))**(1/2)
-		else:
-			if (1/a1[i])<(1/a2[i]):
-				a1[i]==0
-			else:
-				a1[i] = ((a1[i]**pow) - (a2[i]**pow))**(1/2)
-	return a1
-
-@jit
-def inverse_quadrature(self, a1, a2, op, pow):
-	for i in range(len(a1)):
-		if self.op=="+":
-			a1[i] = ((a1[i]**pow) + (a2[i]**pow))**(-1/2)
-		else:
-			if (1/a1[i])<(1/a2[i]):
-				a1[i]==0
-			else:
-				a1[i] = ((a1[i]**pow) - (a2[i]**pow))**(-1/2)
-	return a1
-
-@jit
-def inverse_root_quadrature(self, a1, a2, op, pow):
-	for i in range(len(a1)):
-		if self.op=="+":
-			a1[i] = ((a1[i]**pow) + (a2[i]**pow))**(-1/4)
-		else:
-			if (1/a1[i])<(1/a2[i]):
-				a1[i]==0
-			else:
-				a1[i] = ((a1[i]**pow) - (a2[i]**pow))**(-1/4)
-	return a1
-
-@jit
-def add_sub(self, a1, a2, op):
-	for i in range(len(a1)):
-		if op=="+":
-			a1[i]+= a2[i]
-		else:
-			a1[i]-+a2[i]
-	return a1
+"""

@@ -30,14 +30,13 @@ from oo_analysis.analysis.synthetic_injection import axion_injector
 def MR_scan_analysis(scan, **params):
 	"""
 	Single scan analysis procedure.
-	scanparams = dig_dataset, res, notes
-	modparams = pec_vel, signal
+	Params must include: restype, notes, nbins, axion_frequencies_to_inject,
+						pec_vel, signal_dataset, filter, filter_params, signal
 	"""
 	ch=1 #This is obsolete for 1A analysis, but was carried over from lua->python conversion.
 	
 	#declare variables to be used by single scan analysis
 	try:
-		
 		digitizer_scan = scan 
 		scan_number = params["scan_number"]
 		#Write exceptions here (reason not to include scans in Run1A)
@@ -85,7 +84,7 @@ def MR_scan_analysis(scan, **params):
 	#begin signal scan analysis
 	try:		
 		axblank = numpy.empty_like(signal_shape)
-		DFSZshape = signal_shape*dfszaxion
+		DFSZshape = signal_shape*dfszaxion #Units of watts
 
 		#Remove Receiver response from scan
 
@@ -128,13 +127,20 @@ def MR_scan_analysis(scan, **params):
 		power_deltas = power_johnson*deltas
 		nscans = lorentzian_profile
 		SNR = (axion_power_excess_watts/sigma_w)
+		
+		
+		#Testing new SNR calculation
+		WIENER = np.convolve(deltas, DFSZshape)
+		SIGMA = np.sqrt(sigma**2 * sum(DFSZshape**2))
+		SNR = WIENER/SIGMA
 		if (SNR>20).any():
 			err = "\nSNR for scan number {0} is above 20".format(scan_number)
-			with open(os.getcwd() + "/oo_analysis/meta/error_log", 'a+') as file:
+			with open(os.getcwd() + "/oo_analysis/meta/error_log", 'w+') as file:
 				file.write(err)
 				print(err, end='')
+		
 	
-		chi_squared_results = chi_squared(power_deltas, DFSZshape, lorentzian_profile, sigma_w, cc=0.5)
+		chi_squared_results = chi_squared(power_deltas, DFSZshape, lorentzian_profile,  sigma_w, cc=0.5)
 		
 		sensitivity_power = chi_squared_results['power_sensitivity']
 		sensitivity_coupling = chi_squared_results['coupling_sensitivity']
@@ -143,8 +149,14 @@ def MR_scan_analysis(scan, **params):
 		axion_fit_uncertainty = chi_squared_results['axion_fit_uncertainty']
 		optimal_weight_sum = chi_squared_results['chi_squared_term_two']
 		model_excess_sqrd = chi_squared_results['chi_squared_term_three']
-		#Fit to axion signal
-
+		if (sensitivity_coupling<0.5).any():
+			err = "\nCoupling sensitivity for scan number {0} is below 0.5".format(scan_number)
+			with open(os.getcwd() + "/oo_analysis/meta/error_log", 'w+') as file:
+				file.write(err)
+				print(err, end='\n')
+				
+		#Candidate flagging
+		
 		
 		axion_rmfs = []
 		n_signal_width = len(DFSZshape)
@@ -212,6 +224,7 @@ def chi_squared(power_deltas, axion_signal, cavity_lorentzian, noise_power, conv
 	"""
 	Chi squared as calculated in Improving Axion Signal Models Through N-Body 
 	Simulations by Erik Lentz 2017. Specifically, section 5.5. Each term corresponds to the terms of equation 5.23 in thesis.
+	NOTE: Axion_signal should be in units of watts
 	"""
     
 	if 'cc' not in kwargs:
@@ -224,15 +237,13 @@ def chi_squared(power_deltas, axion_signal, cavity_lorentzian, noise_power, conv
 		cl_coef = kwargs['cl_coeff']
 	pad_len = len(axion_signal)
 	
-	
-	
 	cavity_transmission = cc*cavity_lorentzian #tranmission function for cavity
 	transmitted_power_deltas = numpy.pad(cavity_transmission*power_deltas, pad_len, 'constant', constant_values = 0) #power deltas are dimensionless deltas times Bandwidth*kT
 	cavity_transmission = numpy.pad(cavity_transmission, pad_len, 'constant', constant_values=0)
 	
-	chi_squared_term_one = (1/2)*numpy.sum(power_deltas**2/noise_power)
-	chi_squared_term_two = convolve_two_arrays(transmitted_power_deltas, axion_signal)/(2*noise_power**2) #also having issues
-	chi_squared_term_three = convolve_two_arrays(cavity_transmission**2, axion_signal**2)/(2*noise_power**2) #this is causing problems
+	chi_squared_term_one = numpy.sum(power_deltas**2/(2*noise_power**2))
+	chi_squared_term_two = convolve_two_arrays(transmitted_power_deltas, axion_signal)/(2*noise_power**2)
+	chi_squared_term_three = convolve_two_arrays(cavity_transmission**2, axion_signal**2)/(2*noise_power**2)
 	
 	maximum_likelihood = chi_squared_term_two/chi_squared_term_three #equ 5.26 in Lentz Thesis
 	
@@ -242,10 +253,24 @@ def chi_squared(power_deltas, axion_signal, cavity_lorentzian, noise_power, conv
 	axion_fit_significance = maximum_likelihood/maximum_likelihood_dispersion#equ 5.34 in Lentz Thesis
 	
 	#Sensitivity is calculated using significance of fit to axion of known power
-	power_sensitivity = new_padding(maximum_likelihood_dispersion*cl_coeff, (pad_len,pad_len), pad_val = np.inf)
+	power_sensitivity = new_padding(maximum_likelihood_dispersion*cl_coeff, (pad_len,pad_len), pad_val = np.inf) #Pow. Sens goes like 1/axion power
 	coupling_sensitivity = numpy.sqrt(power_sensitivity)
 
-	
+
+	"""
+	print('\n', axion_fit_significance, numpy.nanstd(axion_fit_significance), '\n')
+	import matplotlib.pyplot as plt
+	plt.figure()
+	plt.subplot(411)
+	plt.plot(power_deltas)
+	plt.subplot(412)
+	n, bins,patch = plt.hist(power_deltas, bins=25, align='mid', histtype='step')
+	plt.subplot(413)
+	plt.plot(axion_fit_significance)
+	plt.subplot(414)
+	plt.plot(convolve_two_arrays(transmitted_power_deltas, axion_signal)/np.sqrt(convolve_two_arrays(cavity_transmission**2, axion_signal**2))/noise_power)
+	plt.show()
+	"""
 	results = {'chi_squared_term_one': chi_squared_term_one,
 				'chi_squared_term_two': chi_squared_term_two,
 				'chi_squared_term_three': chi_squared_term_three,

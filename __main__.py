@@ -10,21 +10,24 @@ import oo_analysis.control
 from oo_analysis.control.core import core_analysis
 import time
 import argparse
-import cProfile, pstats, io, os #Meta analysis
+import cProfile, pstats, io, os, sys #Meta analysis
 
 ############# Meta analysis
 profiler_destination = os.getcwd() + "/oo_analysis/meta/Analytics.txt"
 
 ############# Argument parsing
 P = argparse.ArgumentParser(description="Main execution file for oo_analysis")
-P.add_argument('-t', '--timeit', action='store_true', default=False, help='Argument specifies whether to time all the subprocesses of the analysis')
-P.add_argument('-cgs', '--clear_grand_spectra', action='store_true', default=False, help="Argument specifies whether to delete the grand spectra and start from scratch. Default is False")
-P.add_argument('--start_scan', action='store', default = '', help="Argument specifies the starting scan number of the analysis. If not specified, starting number specified by job.param")
-P.add_argument('--end_scan', action='store', default = '', help="Argument specifies the ending scan number of the analysis. If not specified, ending number specified by job.param")
-P.add_argument('-p', '--make_plots', action='store', default=False, help="Argument specifies whether to generate plots or not after analysis is completed")
+P.add_argument('-t', '--timeit', action='store_true', default=False, help='Time all subprocesses of the analysis \n DEFAULT: False')
+P.add_argument('-cgs', '--clear_grand_spectra', action='store_true', default=False, help="Clear the current grand spectra and start from scratch. \n DEFAULT: False")
+P.add_argument('--start_scan', action='store', default = '388518', help="Scan number to begin the analysis from If not specified, starting number specified by job.param. \n DEFAULT: 388518")
+P.add_argument('--end_scan', action='store', default = '561150', help="Scan number to end the analysis at If not specified, ending number specified by job.param. \n DEFAULT: 561150")
+P.add_argument('-p', '--make_plots', action='store_true', default=False, help="Generate plots at end of analysis. \n DEFAULT: False")
+
 
 args = P.parse_args()
 #############
+
+
 
 if args.timeit:
 	print("################## Running meta analysis ##################")
@@ -52,7 +55,7 @@ if args.timeit:
 	
 	profiler.disable()
 	stream = io.StringIO()
-	stats = pstats.Stats(profiler, stream=stream).sort_stats('time')
+	stats = pstats.Stats(profiler, stream=stream).sort_stats('cumtime')
 	stats.print_stats()
 	with open(profiler_destination, 'w+') as f:
 		f.write(stream.getvalue())
