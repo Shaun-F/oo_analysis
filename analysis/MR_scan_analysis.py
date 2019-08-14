@@ -128,19 +128,14 @@ def MR_scan_analysis(scan, **params):
 		nscans = lorentzian_profile
 		SNR = (axion_power_excess_watts/sigma_w)
 		
-		
+		"""
 		#Testing new SNR calculation
 		WIENER = np.convolve(deltas, DFSZshape)
 		SIGMA = np.sqrt(sigma**2 * sum(DFSZshape**2))
 		SNR = WIENER/SIGMA
-		if (SNR>20).any():
-			err = "\nSNR for scan number {0} is above 20".format(scan_number)
-			with open(os.getcwd() + "/oo_analysis/meta/error_log", 'w+') as file:
-				file.write(err)
-				print(err, end='')
+		"""
 		
-	
-		chi_squared_results = chi_squared(power_deltas, DFSZshape, lorentzian_profile,  sigma_w, cc=0.5)
+		chi_squared_results = chi_squared(deltas, signal_shape, lorentzian_profile,  sigma, cc=0.5)
 		
 		sensitivity_power = chi_squared_results['power_sensitivity']
 		sensitivity_coupling = chi_squared_results['coupling_sensitivity']
@@ -149,11 +144,6 @@ def MR_scan_analysis(scan, **params):
 		axion_fit_uncertainty = chi_squared_results['axion_fit_uncertainty']
 		optimal_weight_sum = chi_squared_results['chi_squared_term_two']
 		model_excess_sqrd = chi_squared_results['chi_squared_term_three']
-		if (sensitivity_coupling<0.5).any():
-			err = "\nCoupling sensitivity for scan number {0} is below 0.5".format(scan_number)
-			with open(os.getcwd() + "/oo_analysis/meta/error_log", 'w+') as file:
-				file.write(err)
-				print(err, end='\n')
 				
 		#Candidate flagging
 		
@@ -220,7 +210,7 @@ def convolve_two_arrays(array1, array2):
 	ret = _centered(convolved_arr, s1)
 	return ret
 
-def chi_squared(power_deltas, axion_signal, cavity_lorentzian, noise_power, convolve=True, **kwargs):
+def chi_squared(deltas, axion_signal, cavity_lorentzian, noise_disp, convolve=True, **kwargs):
 	"""
 	Chi squared as calculated in Improving Axion Signal Models Through N-Body 
 	Simulations by Erik Lentz 2017. Specifically, section 5.5. Each term corresponds to the terms of equation 5.23 in thesis.
@@ -238,39 +228,59 @@ def chi_squared(power_deltas, axion_signal, cavity_lorentzian, noise_power, conv
 	pad_len = len(axion_signal)
 	
 	cavity_transmission = cc*cavity_lorentzian #tranmission function for cavity
-	transmitted_power_deltas = numpy.pad(cavity_transmission*power_deltas, pad_len, 'constant', constant_values = 0) #power deltas are dimensionless deltas times Bandwidth*kT
+	transmitted_power_deltas = numpy.pad(cavity_transmission*deltas, pad_len, 'constant', constant_values = 0) #power deltas are dimensionless deltas times Bandwidth*kT
 	cavity_transmission = numpy.pad(cavity_transmission, pad_len, 'constant', constant_values=0)
 	
-	chi_squared_term_one = numpy.sum(power_deltas**2/(2*noise_power**2))
-	chi_squared_term_two = convolve_two_arrays(transmitted_power_deltas, axion_signal)/(2*noise_power**2)
-	chi_squared_term_three = convolve_two_arrays(cavity_transmission**2, axion_signal**2)/(2*noise_power**2)
+	
+	
+	chi_squared_term_one = numpy.sum(deltas**2/(2*noise_disp**2))
+	chi_squared_term_two = convolve_two_arrays(transmitted_power_deltas, axion_signal)/(2*noise_disp**2)
+	chi_squared_term_three = convolve_two_arrays(cavity_transmission**2, axion_signal**2)/(2*noise_disp**2)
+	
+	chi_squared = lambda A: chi_squared_term_one - 2*A*chi_squared_term_two + A**2 * chi_squared_term_three
 	
 	maximum_likelihood = chi_squared_term_two/chi_squared_term_three #equ 5.26 in Lentz Thesis
 	
-	chi_squared_small_difference = chi_squared_term_three*(2*maximum_likelihood+1) - 2*chi_squared_term_two #equation 5.28 in Lentz Thesis
-	maximum_likelihood_dispersion = new_padding(1/numpy.sqrt(2*chi_squared_small_difference), (pad_len,pad_len), pad_val = np.inf) #equ 5.27 in Lentz Thesis
+	chi_squared_small_difference = chi_squared(maximum_likelihood+1) - chi_squared(maximum_likelihood) #equation 5.28 in Lentz Thesis
 	
-	axion_fit_significance = maximum_likelihood/maximum_likelihood_dispersion#equ 5.34 in Lentz Thesis
+	maximum_likelihood_uncertainty = (2*chi_squared_small_difference)**(-1/2) #equ 5.27 in Lentz Thesis
+	
+	maximum_likelihood_uncertainty = new_padding(maximum_likelihood_uncertainty, (pad_len,pad_len), pad_val = np.inf) 
+	
+	axion_fit_significance = maximum_likelihood/maximum_likelihood_uncertainty#equ 5.34 in Lentz Thesis
 	
 	#Sensitivity is calculated using significance of fit to axion of known power
-	power_sensitivity = new_padding(maximum_likelihood_dispersion*cl_coeff, (pad_len,pad_len), pad_val = np.inf) #Pow. Sens goes like 1/axion power
+	power_sensitivity = new_padding(maximum_likelihood_uncertainty*cl_coeff, (pad_len,pad_len), pad_val = np.inf) #Pow. Sens goes like 1/axion power
 	coupling_sensitivity = numpy.sqrt(power_sensitivity)
 
-
 	"""
-	print('\n', axion_fit_significance, numpy.nanstd(axion_fit_significance), '\n')
+	print(numpy.nanstd(axion_fit_significance))
 	import matplotlib.pyplot as plt
 	plt.figure()
-	plt.subplot(411)
-	plt.plot(power_deltas)
-	plt.subplot(412)
-	n, bins,patch = plt.hist(power_deltas, bins=25, align='mid', histtype='step')
-	plt.subplot(413)
+	plt.subplot(711)
+	plt.title("power Deltas")
+	plt.plot(deltas)
+	plt.subplot(712)
+	plt.title("power deltas histogram")
+	n, bins,patch = plt.hist(deltas, bins=25, align='mid', histtype='step')
+	plt.subplot(713)
+	plt.title("axion fit sign")
 	plt.plot(axion_fit_significance)
-	plt.subplot(414)
-	plt.plot(convolve_two_arrays(transmitted_power_deltas, axion_signal)/np.sqrt(convolve_two_arrays(cavity_transmission**2, axion_signal**2))/noise_power)
+	plt.subplot(714)
+	plt.title("maximum likelihood")
+	plt.plot(maximum_likelihood)
+	plt.subplot(715)
+	plt.title("maximum likelihood dispersion")
+	plt.plot(maximum_likelihood_uncertainty)
+	plt.subplot(716)
+	plt.title("chi_square small diff")
+	plt.plot(chi_squared_small_difference)
+	plt.subplot(717)
+	plt.title("Coupling Sensitivity")
+	plt.plot(coupling_sensitivity)
 	plt.show()
 	"""
+	
 	results = {'chi_squared_term_one': chi_squared_term_one,
 				'chi_squared_term_two': chi_squared_term_two,
 				'chi_squared_term_three': chi_squared_term_three,
@@ -278,7 +288,7 @@ def chi_squared(power_deltas, axion_signal, cavity_lorentzian, noise_power, conv
 				'axion_fit_significance': axion_fit_significance,
 				'power_sensitivity': power_sensitivity,
 				'coupling_sensitivity': coupling_sensitivity,
-				'axion_fit_uncertainty': maximum_likelihood_dispersion
+				'axion_fit_uncertainty': maximum_likelihood_uncertainty
 				}
 	
 	return results

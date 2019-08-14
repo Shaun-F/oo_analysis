@@ -288,7 +288,7 @@ axion_signal_array = []
 autocorr_array = [[],[],[],[]]
 savedir = "D:/Users/shaun/Documents/Coding Software/Python/Scripts/New-Analysis-Scheme/oo_analysis/figures/Background_sub_testing/" + what_kind_of_structure +"_Structure/"
 
-def generate_signal(with_signal=True, noise_only=False, **kwargs):
+def generate_signal(with_signal=True, noise_only=False, what_kind_of_structure='Significant', **kwargs):
 	if what_kind_of_structure=='Benign':
 		mult = 0
 	elif what_kind_of_structure=='Significant':
