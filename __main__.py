@@ -1,8 +1,7 @@
 """
 __init__.py: main init file for analysis
 
-Created by: Erik Lentz
-Creation Date: 10/26/18
+Created by: Shaun Fell
 """
 
 # undertake analysis calculations

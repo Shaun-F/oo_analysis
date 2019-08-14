@@ -16,7 +16,7 @@ nbins=256
 
 pull_data='true'
 start_scan=388518
-end_scan=561150
+end_scan=388518
 restype="MR"
 partition=100000
 
