@@ -22,8 +22,7 @@ import oo_analysis
 
 #Then run the main execution class
 oo_analysis.core()
-
-``
+```
 
 There are a number of arguments that can be passed to the package that dictates the execution. 
 To see the full list of available arguments, run
