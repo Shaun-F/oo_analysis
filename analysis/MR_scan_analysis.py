@@ -135,7 +135,7 @@ def MR_scan_analysis(scan, **params):
 		SNR = WIENER/SIGMA
 		"""
 		
-		chi_squared_results = chi_squared(deltas, signal_shape, lorentzian_profile,  sigma, cc=0.5)
+		chi_squared_results = chi_squared(power_deltas, DFSZshape, lorentzian_profile,  sigma_w, cc=0.5)
 		
 		sensitivity_power = chi_squared_results['power_sensitivity']
 		sensitivity_coupling = chi_squared_results['coupling_sensitivity']
@@ -256,28 +256,21 @@ def chi_squared(deltas, axion_signal, cavity_lorentzian, noise_disp, convolve=Tr
 	"""
 	print(numpy.nanstd(axion_fit_significance))
 	import matplotlib.pyplot as plt
-	plt.figure()
-	plt.subplot(711)
-	plt.title("power Deltas")
-	plt.plot(deltas)
-	plt.subplot(712)
-	plt.title("power deltas histogram")
-	n, bins,patch = plt.hist(deltas, bins=25, align='mid', histtype='step')
-	plt.subplot(713)
-	plt.title("axion fit sign")
-	plt.plot(axion_fit_significance)
-	plt.subplot(714)
-	plt.title("maximum likelihood")
-	plt.plot(maximum_likelihood)
-	plt.subplot(715)
-	plt.title("maximum likelihood dispersion")
-	plt.plot(maximum_likelihood_uncertainty)
-	plt.subplot(716)
-	plt.title("chi_square small diff")
-	plt.plot(chi_squared_small_difference)
-	plt.subplot(717)
-	plt.title("Coupling Sensitivity")
-	plt.plot(coupling_sensitivity)
+	fig, ax = plt.subplots(4,2)
+	ax[0,0].title("power Deltas")
+	ax[0,0].plot(deltas)
+	ax[0,1].title("power deltas histogram")
+	ax[0,1].hist(deltas, bins=25, align='mid', histtype='step')
+	ax[0,2].title("axion fit sign")
+	ax[0,2].plot(axion_fit_significance)
+	ax[0,3].title("maximum likelihood")
+	ax[0,3].plot(maximum_likelihood)
+	ax[0,4].title("maximum likelihood dispersion")
+	ax[0,4].plot(maximum_likelihood_uncertainty)
+	ax[1,0].title("chi_square small diff")
+	ax[1,0].plot(chi_squared_small_difference)
+	ax[1,1].title("Coupling Sensitivity")
+	ax[1,1].plot(coupling_sensitivity)
 	plt.show()
 	"""
 	

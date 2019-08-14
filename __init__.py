@@ -1,1 +1,1 @@
-from oo_analysis.control import core
+from oo_analysis.control.core import core_analysis

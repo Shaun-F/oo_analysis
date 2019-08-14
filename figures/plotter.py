@@ -5,9 +5,6 @@ import h5py
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-
-plt.style.use('fast')
-
 import numpy as np
 import os, sys
 import pickle
@@ -46,6 +43,8 @@ class figures_class():
 			self.axion_frequencies_MHz = self.grand_spectra_group['axion_frequencies'][...]*10**(-6)
 			
 		#Plot parameters
+		self.style = 'fast'
+		plt.style.use(self.style)
 		self.extension = ".pdf"
 		self.savefile = savedir + '/'
 		self.dpi = 1200

@@ -15,8 +15,8 @@ filter_params={'npairs':5}
 nbins=256
 
 pull_data='true'
-start_scan=388518
-end_scan=388518
+start_scan=516070
+end_scan=516071
 restype="MR"
 partition=100000
 

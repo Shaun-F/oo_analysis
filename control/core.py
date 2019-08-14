@@ -38,6 +38,7 @@ class core_analysis():
         # set switches of analysis
         # default
 		self.make_plots = False
+		self.plot_style = 'fast'
         # from param file
 		
 		#parse command line arguments
@@ -178,7 +179,7 @@ class core_analysis():
 				os._exit(0)
 		finally:
 			#save analysis to disk, generate plots, and close out file
-			string="Analysis of {0} scans took {1:0.3f} seconds. \tOf those scans, {2:d} were cut".format(len(self.keys),  self.analysis_stop-self.analysis_start, ncut)
+			string="Analysis of {0} scans took {1:0.3f} seconds. There were {2} candidates detected. {3:0.3f} scans were cut".format(len(self.keys),  self.analysis_stop-self.analysis_start, len(self.candidates), ncut)
 			print(string)
 			self.output()
 			if self.make_plots:
@@ -305,6 +306,7 @@ class core_analysis():
 		
 		print("Generating plots")
 		fig_cl = figures_class(save_dir)
+		fig_cl.style = self.plot_style
 		fig_cl.deltas(**kwargs)
 		fig_cl.fit_significance(**kwargs)
 		fig_cl.candidates()
