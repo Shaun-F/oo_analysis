@@ -177,12 +177,15 @@ def gen_recip_copy(arr, n):
 	num_fit_points = 15
 	linear_func = lambda a,b,arr: a*arr + b
 	domain = numpy.arange(num_fit_points)
-	
-	popt_beginning = numpy.polyfit(domain, arr[0:num_fit_points], 1)
-	lin_fit_beginning_clone = linear_func(popt_beginning[0], popt_beginning[1], domain)
-	
-	popt_end = numpy.polyfit(domain, arr[len(arr)-num_fit_points:], 1)
-	lin_fit_end_clone = linear_func(popt_end[0], popt_end[1], domain)
+	try:
+		popt_beginning = numpy.polyfit(domain, arr[0:num_fit_points], 1)
+		lin_fit_beginning_clone = linear_func(popt_beginning[0], popt_beginning[1], domain)
+		
+		popt_end = numpy.polyfit(domain, arr[len(arr)-num_fit_points:], 1)
+		lin_fit_end_clone = linear_func(popt_end[0], popt_end[1], domain)
+	except numpy.linalg.LinAlgError as err:
+		print(domain, arr)
+		raise
 	
 	#RECIP = ((arr[-1]**2 - arr[0]**2)*(numpy.cos(numpy.arange(len(arr))*numpy.pi/(2*numpy.size(arr[::-1])))**2) + arr[0]**2)/arr[::-1]
 	RECIP = ((lin_fit_end_clone[-1]**2 - lin_fit_beginning_clone[0]**2)*(numpy.cos(numpy.arange(len(arr))*numpy.pi/(2*len(arr)))**2) + lin_fit_beginning_clone[0]**2)/arr[::-1]

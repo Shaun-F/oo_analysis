@@ -14,7 +14,7 @@ def write_out(datagroup,path):
 	#data = h5py.File(path, 'w')
 	# use write functioins to put grand spectra to file
 	
-	datasets = {key: datagroup[key][...] for key in datagroup} #form dictionary of data to save to disk.
+	datasets = {key: datagroup[key][...] for key in datagroup if key!="deltas"} #form dictionary of data to save to disk.
 	output_file = open(path, 'wb') #file object for pickle to save to
 	pickle.dump(datasets, output_file) #save dictionary to file object
 	output_file.close() #close out file object

@@ -6,7 +6,6 @@ import os
 import astropy.constants as C
 import astropy.units as U
 import copy 
-
 from oo_analysis.signals.signal_lib import signal as sig_lib
 from oo_analysis.signals.modulation import modulation as mod
 from oo_analysis.toolbox.lorentzian import lorentzian
@@ -30,7 +29,7 @@ class axion_injector():
 		for name, arg in kwargs.items():
 			setattr(self, name, arg)
 			
-		self.signal_strength = 1 #Fraction of power relative to DFSZ
+		self.signal_strength = 2.7 #Fraction of power relative to DFSZ
 		self.dataset = dataset
 		self.filter_shape = filter_shape
 		
@@ -98,6 +97,14 @@ class axion_injector():
 					##Need to multiply by background shape
 					
 					self.scan_data += power_to_add #inject the power
+					
+					
+					
+					if pd.isnull(self.scan_note):
+						self.dataset.attrs['notes'] = " Synthetic axion injected with frequency {0}".format(afreq)
+					else:
+					
+						self.dataset.attrs['notes'] += " Synthetic axion injected with frequency {0}".format(afreq)
 					
 	
 				else:

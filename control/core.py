@@ -26,6 +26,10 @@ class core_analysis():
 	
 	def __init__(self, args=None, **kwargs):
         # get parameters
+		#argument defaults
+		self.clear_grand_spectra=False
+		self.timeit = False
+		
 		
 		current_dir = os.getcwd()
 		run_definitions_filename = current_dir + "/oo_analysis/job.param"  # from command line, nominally
@@ -47,17 +51,30 @@ class core_analysis():
 			[setattr(self, key, args_dict[key]) for key in list(args_dict.keys())]
 			self.params['start_scan'] = self.start_scan
 			self.params['end_scan'] = self.end_scan
+			self.params['filter'] = self.filter
 		
+		
+		for key,value in self.params.items(): # for python 3.x
+			setattr(self,key,value)
+			
 		#add class attributes
 		for arg, val in kwargs.items():
 			if arg in self.params.keys():
 				self.params[str(arg)] = val
 		
-		run_definitions_string = " Run Definitions: \n \t filter = {0} \n \t signal = {1} \n \t annual modulation = {2} \n \t resolution type = {3} \n \t starting scan = {4} \n \t ending scan = {5} \n ".format(self.params['filter'], self.params['signal'], self.params['pec_vel'], self.params['restype'], self.params['start_scan'], self.params['end_scan'])
-		print(run_definitions_string)		
+		run_definitions_string = """ 
+Run Definitions:\t\t\t\t\t\t\t\t\t\tRun Arguments:       
+\tfilter = {0}\t\t\t\t\t\t\t\t\t\t\tClear grand spectra = {1}
+\tsignal = {2}\t\t\t\t\t\t\t\t\t\t\tanalysis profiling = {3}
+\tannual modulation = {4}\t\t\t\t\t\t\t\t\t\t\tmake plots = {5}
+\tresolution type = {6} 
+\tstarting scan = {7} 
+\tending scan = {8} \n 
+		""".format(self.params['filter'], self.clear_grand_spectra, self.params['signal'], self.timeit, self.params['pec_vel'], self.make_plots, self.params['restype'], self.params['start_scan'], self.params['end_scan'])
+		#arguments = " Run Arguments: \n \t clear grand spectra = {0} \n \t analysis profiling = {1} \n \t make plots = {2} \n ".format(self.clear_grand_spectra, self.timeit, self.make_plots)
+		print(run_definitions_string)
 		
-		for key,value in self.params.items(): # for python 3.x
-			setattr(self,key,value)
+		
 		#find bad scans saved to file
 		self.bad_scans_file = open(self.bad_scans_filename, 'r')
 		self.bad_scans = list(map(int, self.bad_scans_file.readlines()))
@@ -70,9 +87,6 @@ class core_analysis():
 		self.keys = [copy.deepcopy(i) for i in self.dig_dataset.keys() if i not in self.no_axion_log] #Was originally dig_dataset,but some digitizer logs didnt have associated axion logs.
 		pulldata_stop = time.time()
 		
-		print("Loading data successful. It took {0:0.3f} seconds. Beginning analysis of {1} scans".format((pulldata_stop-pulldata_start), len(self.keys)))
-		if self.partitioned:
-			print("Note: Dataset was partitioned")
 		
 		self.update_astronomical_tables()
         
@@ -90,7 +104,7 @@ class core_analysis():
 		self.notes = {key: copy.deepcopy(self.dig_dataset[key].attrs["notes"]) for key in self.keys} #notes attached to scan
 		self.errors = {key: copy.deepcopy(self.dig_dataset[key].attrs['errors']) for key in self.keys} #errors attached to scan
 		self.int_times = {key: float(copy.deepcopy(self.dig_dataset[key].attrs['integration_time'])) for key in self.keys}
-		self.bad_scans = {key: self.dig_dataset[key] for key in self.keys if self.dig_dataset[key].attrs['cut']} #Dict containing bad datasets
+		self.bad_scans = [key for key in self.keys if self.dig_dataset[key].attrs['cut']] #list containing bad datasets
 		
 		add_input(self.dig_dataset,self.Tsys,'Tsys')
 		if args!=None and self.clear_grand_spectra and 'grand_spectra_run1a' in self.h5py_file.keys():
@@ -105,10 +119,10 @@ class core_analysis():
 		# metadata (bad scans, etc.)
 
         # other definitions
-		self.bad_scan_criteria = {'Tsys_bounds': (0.2,5.0),                							#Temperature bounds (lower, upper)
-									'freq_bounds':(640.0,685.0),							#Frequency bounds (lower, upper). Bounds placed by run1a definition
-									'Q_bounds':(10000,70000),                          				#Q bounds (lower, upper). Bounds retrieved from run1a_definitions.yaml
-									'bad_timestamps': self.h5py_file["bad_timestamps_run1a"][...], #array-like
+		self.bad_scan_criteria = {'Tsys_bounds': (0.2,5.0),                								#Temperature bounds (lower, upper)
+									'freq_bounds':(640.0,685.0),										#Frequency bounds (lower, upper). Bounds placed by run1a definition
+									'Q_bounds':(10000,70000),                          					#Q bounds (lower, upper). Bounds retrieved from run1a_definitions.yaml
+									'bad_timestamps': self.h5py_file["bad_timestamps_run1a"][...],  	#array-like
 									'good_notes':("nan","filled_in_after_SAG"),
 									'bad_logging': self.no_axion_log,
 									'good_errors': ("", 
@@ -119,11 +133,13 @@ class core_analysis():
 												' cannot start run, already acquiring',
 												' cannot start run, already acquiring ca',
 												'SetPowerupDefaultsPX4 in setup(): Phase'
-												) 													#This tuple of errors is ok. If scan has any of these errors, analysis will still be performed
+												) 													#This tuple of errors flags ACCEPTABLE error codes. If scan has any of these errors, analysis will still be performed
 									 }
 				 
 		
-		
+		print("Loading data successful. It took {0:0.3f} seconds. Beginning analysis of {1} scans".format((pulldata_stop-pulldata_start), len(self.keys)))
+		if self.partitioned:
+			print("Note: Dataset was partitioned")
 		
 		return None
 
@@ -152,10 +168,14 @@ class core_analysis():
 			import oo_analysis.analysis
 			
 			self.analysis_start=time.time()
-			self.grand_spectra_group, self.candidates, ncut = oo_analysis.analysis.grand_spectra(self)
+			self.grand_spectra_group, self.candidates, ncut, self.background_sizes, self.analyzed_keys = oo_analysis.analysis.grand_spectra(self)
 			self.analysis_stop=time.time()
 			
 			
+			#Output calculations and generate plots
+			self.output()
+			if self.make_plots:
+				self.generate_plots()
 			
 			#import MCMC
 			# perform MCMC analysis
@@ -170,6 +190,11 @@ class core_analysis():
 			print("Execution failed with error: \n {0}".format(error))
 			open(self.error_file, 'a+').write("\n\n"+ str(error))
 			raise
+			try:
+				sys.exit(0)
+			except SystemExit:
+				os._exit(0)
+				
 		except KeyboardInterrupt:
 			self.h5py_file.close()
 			print("Interrupted")
@@ -181,10 +206,8 @@ class core_analysis():
 			#save analysis to disk, generate plots, and close out file
 			string="Analysis of {0} scans took {1:0.3f} seconds. There were {2} candidates detected. {3:0.3f} scans were cut".format(len(self.keys),  self.analysis_stop-self.analysis_start, len(self.candidates), ncut)
 			print(string)
-			self.output()
-			if self.make_plots:
-				self.generate_plots()
 			self.h5py_file.close() #Close the file, saving the changes.
+			
 			return None
 			
 	def output(self):
@@ -249,7 +272,7 @@ class core_analysis():
 					cut=True
 					cut_reason = "exceeding system temperature bound"
 					self.bad_scans.append(key)
-				elif notes not in good_notes and not pd.isnull(notes):
+				elif notes not in good_notes and not pd.isnull(notes) and "Synthetic axion injected with frequency" not in notes:
 					cut=True
 					cut_reason = "Scan not suitable for analysis (See dataset notes)"
 					self.bad_scans.append(key)
@@ -309,12 +332,14 @@ class core_analysis():
 		fig_cl.style = self.plot_style
 		fig_cl.deltas(**kwargs)
 		fig_cl.fit_significance(**kwargs)
-		fig_cl.candidates()
+		fig_cl.fit_significance(hist=True, **kwargs)
 		fig_cl.sensitivity_DM(**kwargs)
 		fig_cl.sensitivity_power(**kwargs)
 		fig_cl.sensitivity_coupling(**kwargs)
 		fig_cl.SNR(**kwargs)
-	
+		fig_cl.bg_sizes(background_sizes = self.background_sizes, mode_frequencies = [self.mode_frequencies[i] for i in self.analyzed_keys])
+		[fig_cl.synth_injection(str(i)) for i in self.axion_frequencies_to_inject]
+		
 	def update_astronomical_tables(self):
 		curr_time = dt.datetime.now()
 		if "grand_spectra_run1a" in self.h5py_file.keys():
@@ -329,6 +354,14 @@ class core_analysis():
 						return None
 					except urllib.error.URLError:
 						print("Cannot download astronomical data. Check internet connection or manually update datatables. Defaulting to stored data")
+			else:
+				try:
+					from astroplan import download_IERS_A
+					print("\nUpdating astronomical tables\n")
+					download_IERS_A()
+					return None
+				except urllib.error.URLError:
+					print("Cannot download astronomical data. Check internet connection or manually update datatables. Defaulting to stored data")
 	
 	def garbage_collector(self):
 		import gc

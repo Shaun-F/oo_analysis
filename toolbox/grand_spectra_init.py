@@ -1,4 +1,4 @@
-def initialization(chunk):
+def initialization(chunk, scan_keys):
 	#Initialize all datasets with empty containers
 	import numpy
 	datanames_zeroed=['sigma_w', 'optimal_weight_sum', 'noise_power', 'model_excess_sqrd', 'axion_fit_significance', 'power_deviation', 'nscans', 'SNR']
@@ -30,4 +30,6 @@ def initialization(chunk):
 	if 'axion_frequencies' not in keys:
 		chunk.create_dataset(name='axion_frequencies', dtype = numpy.float64, data = init_data, maxshape = (None,))
 	
+	chunk.create_group('deltas')
+	[chunk['deltas'].create_dataset(name=str(key), dtype=numpy.float64, shape = (256,), maxshape = (None,)) for key in scan_keys]
 	

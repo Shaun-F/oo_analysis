@@ -14,7 +14,7 @@ def input(parameters):
 	import h5py
 	import warnings
 	warnings.simplefilter(action='ignore', category=FutureWarning)
-	print("\r Loading hdf5 file and datasets \r", end = '')
+	print("\r Loading hdf5 file, datasets, and defining class attributes \r", end = '')
 	raw_data_filename = os.getcwd() + "/oo_analysis/data/raw/run1a_data.hdf5"
 	data_file = h5py.File(raw_data_filename.encode(), "r+")
 	

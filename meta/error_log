@@ -1,2 +1,20 @@
 
 Coupling sensitivity for scan number 516076 is below 0.5
+
+'background_size'
+
+'Text' object is not callable
+
+'Text' object is not callable
+
+index 2 is out of bounds for axis 1 with size 2
+
+index 4 is out of bounds for axis 1 with size 4
+
+Cannot cast ufunc add output from dtype('complex128') to dtype('<f4') with casting rule 'same_kind'
+
+ufunc 'add' did not contain a loop with signature matching types dtype('<U52') dtype('<U52') dtype('<U52')
+
+ufunc 'add' did not contain a loop with signature matching types dtype('<U52') dtype('<U52') dtype('<U52')
+
+initialization() missing 1 required positional argument: 'keys'

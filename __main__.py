@@ -21,7 +21,7 @@ P.add_argument('-cgs', '--clear_grand_spectra', action='store_true', default=Fal
 P.add_argument('--start_scan', action='store', default = '388518', help="Scan number to begin the analysis from If not specified, starting number specified by job.param. \n DEFAULT: 388518")
 P.add_argument('--end_scan', action='store', default = '561150', help="Scan number to end the analysis at If not specified, ending number specified by job.param. \n DEFAULT: 561150")
 P.add_argument('-p', '--make_plots', action='store_true', default=False, help="Generate plots at end of analysis. \n DEFAULT: False")
-
+P.add_argument('-f', '--filter', action='store', default="RCHPF", help='What background subtraction filter to run the analysis with. \n DEFAULT: RCHPF')
 
 args = P.parse_args()
 #############

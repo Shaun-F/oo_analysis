@@ -53,7 +53,8 @@ def MR_scan_analysis(scan, **params):
 				
 		modulation_type = params["pec_vel"]
 		signal_shape = params["signal_dataset"][scan_number]['signal']
-		signal_width_Hz = params["signal_dataset"][scan_number]['signal_width']
+		signal_width_Hz = params["signal_dataset"][scan_number]['signal_width']		
+		
 		data = digitizer_scan[...]
 		
 		h = const.h.to(U.eV*U.s).value #plancks const eV*s
@@ -92,6 +93,8 @@ def MR_scan_analysis(scan, **params):
 		data[0] = np.mean([data[1], data[2], data[3]]) # Some spectra have odd behavior at beginning of scan, i.e. a single downward spike at the beginning position. I just set a default value
 		filtered_dict = filter_function(data, **{**params['filter_params'], **params})
 		filtered_data = filtered_dict['filtereddata']
+		filter_shape = filtered_dict['background'].real
+		background_size = (max(filter_shape)-min(filter_shape))/np.std(data[:10])
 	
 		#Inject artificial axion
 		
@@ -100,7 +103,7 @@ def MR_scan_analysis(scan, **params):
 		params['fres'] = res
 		
 		#Inject software-generated axion signals
-		synthetic_injector = axion_injector(digitizer_scan, filter_shape=filtered_dict['background'].real, **params)
+		synthetic_injector = axion_injector(digitizer_scan, filter_shape=filter_shape, **params)
 		data, SIA_meta = synthetic_injector.inject_signal()
 		filtered_dict = filter_function(data, **params['filter_params'])
 		filtered_data = filtered_dict['filtereddata']
@@ -135,7 +138,7 @@ def MR_scan_analysis(scan, **params):
 		SNR = WIENER/SIGMA
 		"""
 		
-		chi_squared_results = chi_squared(power_deltas, DFSZshape, lorentzian_profile,  sigma_w, cc=0.5)
+		chi_squared_results = chi_squared(power_deltas, DFSZshape, lorentzian_profile, noise_disp = sigma_w, cc=0.5, dimless_deltas = deltas)
 		
 		sensitivity_power = chi_squared_results['power_sensitivity']
 		sensitivity_coupling = chi_squared_results['coupling_sensitivity']
@@ -183,7 +186,8 @@ def MR_scan_analysis(scan, **params):
 				'start_frequency': freqs[0]*10**6,
 				'middle_frequency':middlefreq*10**6,
 				'axion_frequencies':axion_rmfs, #in Hz
-				'software_injected_axion_properties':SIA_meta
+				'software_injected_axion_properties':SIA_meta,
+				'background_size': background_size
 				}
 	return results
 
@@ -210,13 +214,20 @@ def convolve_two_arrays(array1, array2):
 	ret = _centered(convolved_arr, s1)
 	return ret
 
-def chi_squared(deltas, axion_signal, cavity_lorentzian, noise_disp, convolve=True, **kwargs):
+def chi_squared(deltas, axion_signal, cavity_lorentzian, **kwargs):
 	"""
 	Chi squared as calculated in Improving Axion Signal Models Through N-Body 
 	Simulations by Erik Lentz 2017. Specifically, section 5.5. Each term corresponds to the terms of equation 5.23 in thesis.
 	NOTE: Axion_signal should be in units of watts
 	"""
     
+	#deltas = numpy.array([numpy.random.normal(scale=0.01) for i in range(256)])
+	#noise_disp = 0.01
+	
+	noise_disp = kwargs['noise_disp']
+	#noise_disp = numpy.sqrt(sum(deltas**2)/(len(deltas)-1))
+	#noise_disp = numpy.std(deltas)
+	
 	if 'cc' not in kwargs:
 		cc=0.5  #coupling of photons to cavity
 	else:
@@ -247,32 +258,42 @@ def chi_squared(deltas, axion_signal, cavity_lorentzian, noise_disp, convolve=Tr
 	
 	maximum_likelihood_uncertainty = new_padding(maximum_likelihood_uncertainty, (pad_len,pad_len), pad_val = np.inf) 
 	
-	axion_fit_significance = maximum_likelihood/maximum_likelihood_uncertainty#equ 5.34 in Lentz Thesis
+	axion_fit_significance = maximum_likelihood/maximum_likelihood_uncertainty #equ 5.34 in Lentz Thesis
 	
 	#Sensitivity is calculated using significance of fit to axion of known power
 	power_sensitivity = new_padding(maximum_likelihood_uncertainty*cl_coeff, (pad_len,pad_len), pad_val = np.inf) #Pow. Sens goes like 1/axion power
 	coupling_sensitivity = numpy.sqrt(power_sensitivity)
 
-	"""
-	print(numpy.nanstd(axion_fit_significance))
+	
+	prox = []
+	for i in range(len(axion_fit_significance)):
+		if numpy.isinf(axion_fit_significance[i]):
+			prox.append(0)
+		else:
+			prox.append(axion_fit_significance[i])
 	import matplotlib.pyplot as plt
-	fig, ax = plt.subplots(4,2)
-	ax[0,0].title("power Deltas")
+	fig, ax = plt.subplots(2,5)
+	ax[0,0].set_title("power Deltas")
 	ax[0,0].plot(deltas)
-	ax[0,1].title("power deltas histogram")
-	ax[0,1].hist(deltas, bins=25, align='mid', histtype='step')
-	ax[0,2].title("axion fit sign")
-	ax[0,2].plot(axion_fit_significance)
-	ax[0,3].title("maximum likelihood")
+	ax[0,1].set_title("power deltas histogram")
+	ax[0,1].hist(deltas, bins=50, align='mid', histtype='step')
+	ax[0,4].set_title("axion fit sig (sigma = {0:0.5f})".format(numpy.nanstd(prox)))
+	ax[0,4].plot(axion_fit_significance)
+	ax[0,3].set_title("maximum likelihood")
 	ax[0,3].plot(maximum_likelihood)
-	ax[0,4].title("maximum likelihood dispersion")
-	ax[0,4].plot(maximum_likelihood_uncertainty)
-	ax[1,0].title("chi_square small diff")
+	ax[0,2].set_title("maximum likelihood dispersion")
+	ax[0,2].plot(maximum_likelihood_uncertainty)
+	ax[1,0].set_title("chi_square small diff")
 	ax[1,0].plot(chi_squared_small_difference)
-	ax[1,1].title("Coupling Sensitivity")
+	ax[1,1].set_title("Coupling Sensitivity")
 	ax[1,1].plot(coupling_sensitivity)
+	ax[1,2].set_title("deltas/noise_disp \n(sigma = {0:0.5f})".format(numpy.nanstd(deltas/noise_disp)))
+	ax[1,2].plot(deltas/noise_disp)
+	ax[1,3].set_title("dimensionless deltas \n(sigma = {0:0.5f})".format(numpy.nanstd(kwargs['dimless_deltas'])))
+	ax[1,3].plot(kwargs['dimless_deltas'])
+	ax[1,4].plot(numpy.sqrt(2)*chi_squared_term_two/numpy.sqrt(chi_squared_term_three))
 	plt.show()
-	"""
+	
 	
 	results = {'chi_squared_term_one': chi_squared_term_one,
 				'chi_squared_term_two': chi_squared_term_two,

@@ -38,7 +38,7 @@ Thumbs.db
 
 #Unwanted files
 ######################
-run1a_data.hdf5
+*.hdf5
 Analytics.txt
 
 #Unwanted folders

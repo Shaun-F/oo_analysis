@@ -276,7 +276,7 @@ def add_subtract_scan(add_subtract, scan, object, scan_id, grand_spectra_group, 
 			object.chunk['noise_power'][ainx_start:ainx_end] = object.noise_power_consolidation(ainx_start, ainx_end)
 			object.chunk['axion_fit'][ainx_start:ainx_end] = object.axion_fit_consolidation(ainx_start, ainx_end)
 			object.chunk['axion_fit_significance'][ainx_start:ainx_end] = object.axion_fit_significance_consolidation(ainx_start, ainx_end)
-
+			object.chunk['deltas'][str(scan_id)][...] = object.scan['deltas']
 		except (MemoryError, KeyError, IndexError) as error:
 			open(os.getcwd() + '/oo_analysis/meta/error_log', 'a+').write("\n\n"+ str(error))
 			print("Error with scan {0} in coaddition script. Writing to error log. ".format(scan_id))
