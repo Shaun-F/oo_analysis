@@ -10,13 +10,15 @@ def input(parameters):
 	# sets up start and stop parameters
 	start = int(parameters['start_scan'])
 	stop = int(parameters['end_scan'])
+	
 	# gets intput data
 	import h5py
 	import warnings
 	warnings.simplefilter(action='ignore', category=FutureWarning)
 	print("\r Loading hdf5 file, datasets, and defining class attributes \r", end = '')
-	raw_data_filename = os.getcwd() + "/oo_analysis/data/raw/run1a_data.hdf5"
-	data_file = h5py.File(raw_data_filename.encode(), "r+")
+	
+	raw_data_filename = os.getcwd() + "/oo_analysis/data/raw/run1a_data.hdf5" #File path to run1a data
+	data_file = h5py.File(raw_data_filename.encode(), "r+") #File object holding run1a in HDF5 file format
 	
 	if "bad_timestamps_run1a" not in data_file.keys():
 		data_file.create_dataset(name="bad_timestamps_run1a", dtype="S10", data = [b"initval"], maxshape=(None,))
@@ -26,6 +28,8 @@ def input(parameters):
 	counter = 0
 	partitioned = False
 	print('\n\n')
+	
+	#Iterate over and pull down run1a data
 	try:
 		for key in range(start, stop):
 			try:

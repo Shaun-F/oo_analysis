@@ -1,5 +1,7 @@
 """
 Script plots the figures of merit for the analysis
+
+Created by: Shaun Fell
 """
 import h5py
 import matplotlib
@@ -30,6 +32,7 @@ class figures_class():
 		if savedir == 'here':
 			savedir = os.getcwd() + "/oo_analysis/figures/"
 		
+		#File path to paper
 		paper_savedir = "D:/Users/shaun/Documents/ADMX/Papers/Own Papers/Orbital_Considerations_and_other_Advances_in_searching_for_Invisible_Axion_Dark_Matter_in_ADMX_Run1A/"
 		self.save_to_paper = False
 		if 'save_to_paper' in list(kwargs.keys()) and kwargs['save_to_paper']:
@@ -53,7 +56,8 @@ class figures_class():
 				self.grand_spectra_group = self.file['grand_spectra_run1a']
 				self.digitizer_group = self.object.dig_dataset
 				self.axion_frequencies_MHz = self.grand_spectra_group['axion_frequencies'][...]*10**(-6)
-			self.RF_interference_mask = (self.axion_frequencies_MHz<660.16)|(self.axion_frequencies_MHz>660.27)
+			
+			self.RF_interference_mask = (self.axion_frequencies_MHz<660.16)|(self.axion_frequencies_MHz>660.27) #This frequency range contains interference from RF signals
 
 		#Plot parameters
 		self.style = 'fast'
@@ -77,11 +81,12 @@ class figures_class():
 	def sensitivity_coupling(self, window_average = 1.0, **kwargs):
 	
 		data = self.grand_spectra_group['sensitivity_coupling'][...]
-		mask = np.isfinite(data)
+		mask = np.isfinite(data) #Mask out infinite values
 		master_mask = mask&self.RF_interference_mask
 		reduced_data = data[master_mask]
 		domain = self.axion_frequencies_MHz[master_mask]
 		
+		#Bins coupling with bin size determined by window_average
 		nbins = int(np.ceil((max(domain)-min(domain))/window_average))
 		binner = stats.binned_statistic(domain, reduced_data, bins = nbins)
 		reduced_data = binner.statistic
@@ -126,7 +131,7 @@ class figures_class():
 		reduced_data = data[master_mask]
 		domain = self.axion_frequencies_MHz[master_mask]
 		
-		
+		#Bins coupling with bin size determined by window_average
 		nbins = nbins = int(np.ceil((max(domain)-min(domain))/window_average))
 		binner = stats.binned_statistic(domain, reduced_data, bins = nbins)
 		reduced_data = binner.statistic
@@ -199,7 +204,7 @@ class figures_class():
 		reduced_data = data[master_mask]
 		domain = self.axion_frequencies_MHz[master_mask]
 		
-		
+		#Bins coupling with bin size determined by window_average
 		nbins = int(np.ceil((max(domain)-min(domain))/window_average))
 		binner = stats.binned_statistic(domain, reduced_data, bins = nbins)
 		reduced_data = binner.statistic
@@ -234,6 +239,7 @@ class figures_class():
 		Plot the axion fit significance
 		"""
 		if hist:
+			#For some reason, the axion fit significance doesnt coadd well. I never found the time to track it down, so this is my work around
 			self.data = self.grand_spectra_group['optimal_weight_sum'][...]/self.grand_spectra_group['model_excess_sqrd'][...]/self.grand_spectra_group['axion_fit_uncertainty'][...]
 			mask = np.isfinite(self.data)
 			self.master_mask = mask&self.RF_interference_mask
@@ -274,6 +280,7 @@ class figures_class():
 			
 			
 		else:
+			#For some reason, the axion fit significance doesnt coadd well. I never found the time to track it down, so this is my work around
 			self.data = self.grand_spectra_group['optimal_weight_sum'][...]/self.grand_spectra_group['model_excess_sqrd'][...]/self.grand_spectra_group['axion_fit_uncertainty'][...]
 			mask = np.isfinite(self.data)
 			mask1 = (self.data>0)
@@ -281,13 +288,15 @@ class figures_class():
 			reduced_data = self.data[self.master_mask]
 			domain = self.axion_frequencies_MHz[self.master_mask]
 			
-			if 'synthetic_injections' in kwargs.keys():
+			if 'synthetic_injections' in kwargs.keys(): #Mask out synthetically injected axion signals
 				synth_mask = [True]*len(reduced_data)
 				for freq in kwargs['synthetic_injections']:
 					synth_mask = synth_mask&(((domain*10**6<(float(freq)-1000)))|(domain*10**6>(float(freq)+1000)))
 			
 				reduced_data = reduced_data[synth_mask]
 				domain = domain[synth_mask]
+			
+			
 			#Bin 3-sigma excursions together that are close by
 			three_sig_exc = reduced_data[reduced_data>3]
 			three_sig_exc_domain = domain[reduced_data>3]
@@ -373,9 +382,12 @@ class figures_class():
 			mode_freqs = [float(copy.deepcopy(self.digitizer_group[key].attrs['mode_frequency'])) for key in self.digitizer_group]
 		else:
 			mode_freqs = kwargs['mode_frequencies']
+		
+		#Mask out bad scans
 		bad_scans_mask = [self.digitizer_group[key].attrs['cut'] for key in self.digitizer_group]
 		good_scans_mask = np.invert(bad_scans_mask)
 		
+		#Generate list of datetime objects
 		times = list(map(lambda x: dt.datetime.strptime(x, "%d-%m-%Y %H:%M:%S"), times)) #set all timestamp strings to datetime objects
 		
 		fig, ax = plt.subplots()
@@ -439,7 +451,7 @@ class figures_class():
 		plt.clf()		
 	def scan_rate(self, **kwargs):
 		"""
-		Plot the number of scans per frequency   ### NOTE: Use logarithmic y-axis
+		Plot the mode frequency versus timestamp. Width of line determined by Q factor
 		"""
 		import dateutil
 		from dateutil.parser import parse
@@ -556,8 +568,6 @@ class figures_class():
 		Plot the temperature over frequency
 		
 		
-		
-		Make sort of like the width-by-Q width plot. Since we have multiple passes, this will be multiple valued
 		"""
 		#set data
 		temperatures = []
@@ -641,7 +651,7 @@ class figures_class():
 		else:
 			frequencies = kwargs['mode_frequencies']
 			
-		assert 'background_sizes' in list(kwargs.keys())
+		assert 'background_sizes' in list(kwargs.keys()) #Make sure background size is passed to kwargs
 		codomain = kwargs['background_sizes']
 		
 		#Sort frequencies
@@ -659,6 +669,10 @@ class figures_class():
 		
 		plt.clf()			
 	def synth_injection(self, frequency, **kwargs):
+		"""
+		Plot the background-removed scans that contain a synthetically injected axion signal. 
+		Also plot the same portion of the axion fit significance
+		"""
 		
 		afreq = str(frequency)
 		self.delta_group = self.grand_spectra_group['deltas']
@@ -708,6 +722,9 @@ class figures_class():
 			plt.show()
 		plt.clf()			
 	def modulation_effect(self, **kwargs):
+		"""
+		Plot the variation of the two axion signals (N-Body and Standard Halo Model) as they change annually.
+		"""
 		h=4.135*10**(-15)
 		c=2.998*10**5
 		RME = 10**(-6) #RME of axion in eV
@@ -804,6 +821,9 @@ class figures_class():
 		plt.savefig(self.savefile + "modulation_effect" + self.extension, dpi = self.dpi)
 		plt.show()	
 	def sensitivity_combined(self, **kwargs):
+		"""
+		Combined coupling sensitivity, Power Sensitivity, and dark matter sensitivity using the SHM and the NBody signals
+		"""
 		import pickle
 		import pandas as pd
 		nbody_files = ['oo_analysis/figures/pickles/Coupling_sensitivity_(RCHPF_earth rotation_axionDM_w_baryons).pickle', 'oo_analysis/figures/pickles/Power_sensitivity_(RCHPF_earth rotation_axionDM_w_baryons).pickle', 'oo_analysis/figures/pickles/DM_sensitivity_(RCHPF_earth rotation_axionDM_w_baryons).pickle']
@@ -913,6 +933,10 @@ class figures_class():
 			plt.show()
 		plt.clf()
 	def parsed_artificial_scan(self, **kwargs):
+		"""
+		Generate an artificial scan and parse out the relevant components (Background, noise, axion signal). Then plot the fourier transform in [power]/[s].
+		Next plot the same artificial scan but extended using the method used in the Reciprocated clone HPF. THen plot its fourier transform in [power]/[s]
+		"""
 		signal_color = 'yellow'
 		axion_color = 'blue'
 		background_color = 'brown'
@@ -920,18 +944,20 @@ class figures_class():
 
 		from oo_analysis.filters.RCHPF import generate_signal, gen_recip_copy
 		n = 5
-		sig = generate_signal()
+		
+		sig = generate_signal() #Dictionary containing all the components of the artificial scan (Total, Background, noise, axion signal)
 		noise = sig['noise']
 		signal = sig['Combined signal']
 		axion = sig['axion signal']
 		back = sig['backgrounds']
+		
 		autocorr = lambda arr: np.correlate(arr-np.mean(arr), arr-np.mean(arr), 'full')[len(arr)-1:]
 		fourier = lambda arr: np.abs(np.fft.fftn(arr**2))[:int(len(arr)/2)]
 		noise_corr = fourier(noise)
 		axion_corr = fourier(axion)
 		back_corr = fourier(back)/fourier(back)[0]
 
-
+		#Plot signal and its fourier transform
 		fig, ax = plt.subplots(2,2)
 		ax[0,0].plot(signal, color=signal_color, label='Signal'); 
 		ax[0,0].plot(back, color=background_color, label='Background'); 
@@ -952,7 +978,7 @@ class figures_class():
 		#plt.xlim(-0.25, 256/2); 
 		ax[0,1].set_yscale("log") 
 
-
+		#Now extend the artificial scan by cloning, flipping, and reciprocating. PLots it and its fourier transform
 		ext_signal = gen_recip_copy(signal, n); 
 		ext_noise = gen_recip_copy(noise+1, n)-1; 
 		ext_axion = gen_recip_copy(axion+1, n)-1; 
@@ -991,7 +1017,9 @@ class figures_class():
 			plt.show()
 		plt.clf()
 	def extended_fourier_domain(self, **kwargs):
-
+		"""
+		Makes a plot of the extended fourier domain
+		"""
 		from oo_analysis.filters.RCHPF import generate_signal, gen_recip_copy
 		
 		n = 1
@@ -1019,6 +1047,10 @@ class figures_class():
 			plt.show()
 		plt.clf()
 	def change_in_coup_sens(self, **kwargs):
+		"""
+		Plots the change in coupling sensitivity between using a dynamical lineshape and a static lineshape
+		"""
+		
 		import pickle
 		import pandas as pd
 		

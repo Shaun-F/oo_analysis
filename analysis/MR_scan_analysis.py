@@ -37,39 +37,41 @@ def MR_scan_analysis(scan, **params):
 	
 	#declare variables to be used by single scan analysis
 	try:
-		digitizer_scan = scan 
+		digitizer_scan = scan #hdf5 dataset of scan
 		scan_number = params["scan_number"]
 		#Write exceptions here (reason not to include scans in Run1A)
 		
+		#Get scan attributes
 		fstart = float(digitizer_scan.attrs["start_frequency"])
 		fstop = float(digitizer_scan.attrs["stop_frequency"])
 		res = float(digitizer_scan.attrs["frequency_resolution"])
 		int_time = float(digitizer_scan.attrs['integration_time'])
-		freqs = numpy.asarray([fstart + res*i for i in numpy.arange(start=0, stop=((fstop-fstart)/res))])
+		freqs = numpy.asarray([fstart + res*i for i in numpy.arange(start=0, stop=((fstop-fstart)/res))]) #Construct frequency array of scan
 
-		binwidth = float(res)*10**6 # in Hz
+		binwidth = float(res)*10**6 # scans frequency resolution in Hz
 		
 		
-				
+		#Get axion filter properties and attributes	
 		modulation_type = params["pec_vel"]
 		signal_shape = params["signal_dataset"][scan_number]['signal']
 		signal_width_Hz = params["signal_dataset"][scan_number]['signal_width']		
 		
-		data = digitizer_scan[...]
+		data = digitizer_scan[...] #Get the scans power spectrum
 		
+		#Declare fundamental constants and assign scan properties to variables
 		h = const.h.to(U.eV*U.s).value #plancks const eV*s
 		k = const.k_B.to(U.J/U.Kelvin).value #Boltzmanns constant J/K
 		Tsys = params["Tsys"] #calculate the system temperature
 		power_johnson = signal_width_Hz*k*Tsys #johnson noise power
 		
-		scan_length = len(freqs)
+		scan_length = len(freqs) #Length of scans frequency domain 
+		
+		#Find the middle frequency (should be the resonant frequency)
 		middlefreqpos = int(numpy.floor(scan_length/2))
 		middlefreq = freqs[(middlefreqpos-1)]
 		nbins = params['nbins']
 		axion_RMF = float(middlefreq*10**6 - (middlefreq*10**6)%binwidth) #calculate axion at center of scan (Hz)
 		timestamp = digitizer_scan.attrs["timestamp"]
-		axion_mass = float(axion_RMF*h)
-		startfreq = float(digitizer_scan.attrs["start_frequency"])*10**6 #Hz
 		wantTseries=None
 		
 		
@@ -84,17 +86,17 @@ def MR_scan_analysis(scan, **params):
 	
 	#begin signal scan analysis
 	try:		
-		axblank = numpy.empty_like(signal_shape)
-		DFSZshape = signal_shape*dfszaxion #Units of watts
+		axblank = numpy.empty_like(signal_shape) #Construct array with same shape as axion spectra
+		DFSZshape = signal_shape*dfszaxion #Construct unit-full axion spectra (Watts)
 
 		#Remove Receiver response from scan
 
-		filter_function = getattr(backsub_filters_lib, params['filter'])
+		filter_function = getattr(backsub_filters_lib, params['filter']) #Get the filtering function as determined from the analysis parameters
 		data[0] = np.mean([data[1], data[2], data[3]]) # Some spectra have odd behavior at beginning of scan, i.e. a single downward spike at the beginning position. I just set a default value
-		filtered_dict = filter_function(data, **{**params['filter_params'], **params})
-		filtered_data = filtered_dict['filtereddata']
-		filter_shape = filtered_dict['background'].real
-		background_size = (max(filter_shape)-min(filter_shape))/np.std(data[:10])
+		filtered_dict = filter_function(data, **{**params['filter_params'], **params}) #Filter the data
+		filtered_data = filtered_dict['filtereddata'] #Obtain the filtered data
+		filter_shape = filtered_dict['background'].real #Get the background shape
+		background_size = (max(filter_shape)-min(filter_shape))/np.std(data[:10]) #Calculate the background size
 	
 		#Inject artificial axion
 		
@@ -103,33 +105,33 @@ def MR_scan_analysis(scan, **params):
 		params['fres'] = res
 		
 		#Inject software-generated axion signals
-		synthetic_injector = axion_injector(digitizer_scan, filter_shape=filter_shape, **params)
-		data, SIA_meta = synthetic_injector.inject_signal()
-		filtered_dict = filter_function(data, **params['filter_params'])
-		filtered_data = filtered_dict['filtereddata']
+		synthetic_injector = axion_injector(digitizer_scan, filter_shape=filter_shape, **params) #Initalize the axion injection class
+		data, SIA_meta = synthetic_injector.inject_signal() #Inject the axion signals
+		filtered_dict = filter_function(data, **params['filter_params']) #Redo background subtraction
+		filtered_data = filtered_dict['filtereddata'] #Obtain the filtered background
 
 		
-		filtered_data_mean = numpy.mean(filtered_data)
-		deltas = np.asarray((filtered_data - filtered_data_mean))
+		filtered_data_mean = numpy.mean(filtered_data) #Get mean of filtered data (Should be unity)
+		deltas = np.asarray((filtered_data - filtered_data_mean)) #Remove mean to obtain deltas
 		
 		#digitizer_scan = bin_consolidator(digitizer_scan, res)
 		
 		
 		
-		Q = digitizer_scan.attrs["Q"]
-		res_freq = digitizer_scan.attrs["mode_frequency"] #MHz
-		lorentzian_profile = lorentzian(Q, res_freq*10**6, fstart*10**6, fstop*10**6, binwidth)
-		cc = 0.5
+		Q = digitizer_scan.attrs["Q"] #Get quality factor of scan
+		res_freq = digitizer_scan.attrs["mode_frequency"] #Mode frequency in MHz
+		lorentzian_profile = lorentzian(Q, res_freq*10**6, fstart*10**6, fstop*10**6, binwidth) #Calculate cavity transmission function
+		cc = 0.5 #Critical coupling
 		cav_trans_mod = cc*lorentzian_profile
-		axion_power_excess_watts = convolve_two_arrays(DFSZshape, cav_trans_mod)
+		axion_power_excess_watts = convolve_two_arrays(DFSZshape, cav_trans_mod) #Determine the axion power excess after travelling through cavity antenna at critical coupling
 
 		
 		#Genereate bin-wise scan stats assuming all power in single bin
 		sigma = numpy.std(deltas)
-		sigma_w = power_johnson*(signal_width_Hz*int_time)**(-1/2)
+		sigma_w = power_johnson*(signal_width_Hz*int_time)**(-1/2) #Weight sigma (Watts)
 		power_deltas = power_johnson*deltas
 		nscans = lorentzian_profile
-		SNR = (axion_power_excess_watts/sigma_w)
+		SNR = (axion_power_excess_watts/sigma_w) #Calculate Signal-To-Noise Ratio
 		
 		"""
 		#Testing new SNR calculation
@@ -138,7 +140,8 @@ def MR_scan_analysis(scan, **params):
 		SNR = WIENER/SIGMA
 		"""
 		
-		chi_squared_results = chi_squared(power_deltas, DFSZshape, lorentzian_profile, noise_disp = sigma_w, cc=0.5, dimless_deltas = deltas)
+		#Perform chi squared statistic
+		chi_squared_results = chi_squared(power_deltas, DFSZshape, lorentzian_profile, noise_disp = sigma_w, cc=0.5, dimless_deltas = deltas) 
 		
 		sensitivity_power = chi_squared_results['power_sensitivity']
 		sensitivity_coupling = chi_squared_results['coupling_sensitivity']
@@ -148,7 +151,6 @@ def MR_scan_analysis(scan, **params):
 		optimal_weight_sum = chi_squared_results['chi_squared_term_two']
 		model_excess_sqrd = chi_squared_results['chi_squared_term_three']
 				
-		#Candidate flagging
 		
 		
 		axion_rmfs = []
@@ -210,8 +212,9 @@ def convolve_two_arrays(array1, array2):
 	array1_fft = DFT(array1, fshape)
 	array2_fft = DFT(array2, fshape)
 	
+	#Perform convolution
 	convolved_arr = numpy.asarray(numpy.real(IDFT(array1_fft*array2_fft)))[fslice]
-	ret = _centered(convolved_arr, s1)
+	ret = _centered(convolved_arr, s1) #Recover wanted array
 	return ret
 
 def chi_squared(deltas, axion_signal, cavity_lorentzian, **kwargs):
@@ -244,11 +247,11 @@ def chi_squared(deltas, axion_signal, cavity_lorentzian, **kwargs):
 	
 	
 	
-	chi_squared_term_one = numpy.sum(deltas**2/(2*noise_disp**2))
-	chi_squared_term_two = convolve_two_arrays(transmitted_power_deltas, axion_signal)/(2*noise_disp**2)
-	chi_squared_term_three = convolve_two_arrays(cavity_transmission**2, axion_signal**2)/(2*noise_disp**2)
+	chi_squared_term_one = numpy.sum(deltas**2/(2*noise_disp**2)) #Constant term of the chi squared
+	chi_squared_term_two = convolve_two_arrays(transmitted_power_deltas, axion_signal)/(2*noise_disp**2) #Linear term of the chi squared
+	chi_squared_term_three = convolve_two_arrays(cavity_transmission**2, axion_signal**2)/(2*noise_disp**2) #Quadratic term of the chi squared
 	
-	chi_squared = lambda A: chi_squared_term_one - 2*A*chi_squared_term_two + A**2 * chi_squared_term_three
+	chi_squared = lambda A: chi_squared_term_one - 2*A*chi_squared_term_two + A**2 * chi_squared_term_three #Anonymous function defining the chi squared in terms of fraction power
 	
 	maximum_likelihood = chi_squared_term_two/chi_squared_term_three #equ 5.26 in Lentz Thesis
 	
@@ -264,7 +267,9 @@ def chi_squared(deltas, axion_signal, cavity_lorentzian, **kwargs):
 	power_sensitivity = new_padding(maximum_likelihood_uncertainty*cl_coeff, (pad_len,pad_len), pad_val = np.inf) #Pow. Sens goes like 1/axion power
 	coupling_sensitivity = numpy.sqrt(power_sensitivity)
 
-	
+
+	#The following is me trying to figure out whats wrong with the fit significance calculation
+	"""
 	prox = []
 	for i in range(len(axion_fit_significance)):
 		if numpy.isinf(axion_fit_significance[i]):
@@ -293,7 +298,7 @@ def chi_squared(deltas, axion_signal, cavity_lorentzian, **kwargs):
 	ax[1,3].plot(kwargs['dimless_deltas'])
 	ax[1,4].plot(numpy.sqrt(2)*chi_squared_term_two/numpy.sqrt(chi_squared_term_three))
 	plt.show()
-	
+	"""
 	
 	results = {'chi_squared_term_one': chi_squared_term_one,
 				'chi_squared_term_two': chi_squared_term_two,
@@ -307,7 +312,8 @@ def chi_squared(deltas, axion_signal, cavity_lorentzian, **kwargs):
 	
 	return results
 	
-	
+
+#Define functions to be used in the single scan analysis
 def flip_arr(arr):
 	mid = int(numpy.ceil(len(arr)/2))
 	new_arr = numpy.empty_like(arr)

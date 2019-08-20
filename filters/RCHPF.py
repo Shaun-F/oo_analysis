@@ -116,6 +116,8 @@ def reciprocated_clone_hpf(data, npairs, return_parsed_data = False, sigma=None,
 	pickORIG =  numpy.array(pickORIG)
 	filtereddata = ORIG/pickORIG # Divide out low freq. structure from data.
 	
+	
+	#I use the following chunk of code during testing. It plots all the relevants pieces of the above filter
 	if testing:
 		date = ""
 		starting_string=""
@@ -178,7 +180,7 @@ def gen_recip_copy(arr, n):
 	linear_func = lambda a,b,arr: a*arr + b
 	domain = numpy.arange(num_fit_points)
 	try:
-		popt_beginning = numpy.polyfit(domain, arr[0:num_fit_points], 1)
+		popt_beginning = numpy.polyfit(domain, arr[0:num_fit_points], 1) #Fit the endpoints using a linear fint
 		lin_fit_beginning_clone = linear_func(popt_beginning[0], popt_beginning[1], domain)
 		
 		popt_end = numpy.polyfit(domain, arr[len(arr)-num_fit_points:], 1)
@@ -195,7 +197,15 @@ def gen_recip_copy(arr, n):
 	return numpy.asarray(extended_arr)
 
 def calc_filter_size(arr, extended_arr,n):
-	
+	"""
+	This filter calculation uses the geometry of the autocorrelation to determine the size. 
+	Step 1: Compute the autocorrelation of the extended fourier domain
+	Step 2: Slice half the autocorrelation starting at the DC component. THen find the next peak in the autocorrelation
+	Step 3: Find the FWHM of this next peak. THis tells us about the size of the background in the original fourier domain
+	Step 4: Calculate the relative size of the background to the noise dispersion. This tells us if the background is comparable to the noise or not
+	Step 5: Multiply by a quasi-arbitrary factor (thought motivated by testing) to capture higher modes within the background
+	Step 6: Return the result
+	"""
 	### Currently testing different calculations of the filter size
 
 	#frac_delta = lambda arr: (numpy.max(arr)-numpy.min(arr))/(numpy.max(arr)+numpy.min(arr))
@@ -208,6 +218,19 @@ def calc_filter_size(arr, extended_arr,n):
 	
 	ext_ORIG_corr = numpy.correlate(extended_arr-numpy.mean(extended_arr), extended_arr-numpy.mean(extended_arr), 'full')
 	
+	test_corr = ext_ORIG_corr[len(extended_arr)-1:][512:]
+	
+	width_line = (numpy.max(test_corr)-numpy.min(test_corr))/2 + numpy.min(test_corr)
+	subtracted = test_corr - width_line
+	test_width = numpy.where(numpy.diff(numpy.sign(subtracted)))[0][0]
+	if test_width<12: #Signal is probably mainly noise
+		test_width=10**9 
+	
+	noise_to_significant_structure = numpy.tanh(sigma_func(arr)-1)**6
+	higher_modes_factor = 200
+	
+	test_width_sigma = ((2*numpy.pi/test_width))*(n*2+1)*higher_modes_factor*noise_to_significant_structure
+	
 	"""
 	#plt.plot(ORIG_corr); plt.show(); plt.plot(extended_array); plt.show();
 
@@ -218,20 +241,6 @@ def calc_filter_size(arr, extended_arr,n):
 	secondary_peak = peaks_rem[numpy.max(numpy.where(ext_ORIG_corr[peaks_rem]==numpy.max(ext_ORIG_corr[peaks_rem]))[0])]
 	width = numpy.abs(secondary_peak-primary_peak)
 	"""
-	test_corr = ext_ORIG_corr[len(extended_arr)-1:][512:]
-	
-	width_line = (numpy.max(test_corr)-numpy.min(test_corr))/2 + numpy.min(test_corr)
-	subtracted = test_corr - width_line
-	test_width = numpy.where(numpy.diff(numpy.sign(subtracted)))[0][0]
-	if test_width<12: #Signal is probably mainly noise
-		test_width=10**9 
-	
-		
-	
-	noise_to_significant_structure = numpy.tanh(sigma_func(arr)-1)**6
-	higher_modes_factor = 200
-	
-	test_width_sigma = ((2*numpy.pi/test_width))*(n*2+1)*higher_modes_factor*noise_to_significant_structure
 	
 	return test_width_sigma
 

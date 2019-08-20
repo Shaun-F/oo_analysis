@@ -8,6 +8,9 @@ import h5py
 def calc_sys_temp(h5py_digitizer_dataset):
 	"""
 	Function computes the system temperature. 
+	
+	Calculation based off supplementary material of Search for Invisible Axion Dark Matter with the Axion Dark Matter Experiment
+	
 	h5py_digitizer_dataset should be (h5pyfile)["digitizer_log_run1a"]["(digitizer id)"]
 	h5py_axion_dataset should be (h5pyfile)["axion_log_run1a"]["(digitizer id)"]
 	squid_temp_dataset should be (h5pyfile)["squid_temperature_run1a"]["timestamp"]	

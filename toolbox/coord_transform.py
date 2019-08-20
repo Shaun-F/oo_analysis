@@ -123,6 +123,9 @@ class transformer():
 			return {timestamp: [gvel.v_x.to(u.km/u.s).value,gvel.v_y.to(u.km/u.s).value,gvel.v_z.to(u.km/u.s).value]}
 		
 	def solar_vel_GalacticFrame(self, timestamp=None):
+		"""
+		Method determines the velocity of the sun in the galactic reference frame
+		"""
 		galcen_v_sun = coord.Galactocentric().galcen_v_sun
 		
 		if isinstance(timestamp, list) or isinstance(timestamp, numpy.ndarray):

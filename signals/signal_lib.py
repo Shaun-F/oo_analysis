@@ -35,6 +35,7 @@ class signal(object):
 
 	def SHM(self,freq, mass, modulation_vel):
 		"""
+		Standard Halo Model. This is the maxwellian shape
 		Modulation_vel is the total velocity of the experiment around the galactic center
 		"""
 		sigma_v = 160
@@ -94,6 +95,7 @@ class signal(object):
 
 	def ITS(self, freq, mass, sigma_v, v_lab): #bin_width,sigmav,vt,vr, freq,mass,sigma_v,v_lab
 		"""
+		Isothermal Sphere Model
 		Description: 
 			Function takes in parameters and outputs probability to find axion at input frequency
 		Parameters: 
@@ -128,6 +130,7 @@ class signal(object):
 
 	def axionDM_w_baryons(self, freq, mod_vel=0, v_sol=220, mass=3*10**(-6), timestamp=""):
 		"""
+		N-Body Model
 		Description: 
 			Function gives probability density for axion signal of Lentz et al. 2017
 		Parameters: 

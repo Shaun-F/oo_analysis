@@ -22,182 +22,100 @@ class scan_cl(object):
 		Initialization method
 		"""
 		
-		self.op = op
-		self.scan=scan
-		self.scan_scan_number = scid
+		self.op = op #Whether to add or subtract scan from grand spectra
+		self.scan=scan #Scan dictionary
+		self.scan_scan_number = scid #Scan number
 		
 		#setup class definitions for chunk 
 		#pull only array of points from grand_spectra that line up with scan
-		self.chunk = chunk
+		self.chunk = chunk #Grand spectra HDF5 dataset
 	
 	def axion_fit_consolidation(self, inx_start, inx_end):
 		"""
-		optimal_weight_sum = self.chunk_optimal_weight_sum
-		model_excess_sqrd = self.chunk_model_excess_sqrd
-		axion_fit=list(range(len(optimal_weight_sum)))
-		for i in range(len(optimal_weight_sum)):
-			if optimal_weight_sum[i]==0 and model_excess_sqrd[i]==0:
-				axion_fit[i]=0
-			elif optimal_weight_sum[i]!=0 and model_excess_sqrd[i]==0:
-				axion_fit[i]=np.inf
-			else:
-				axion_fit[i]=optimal_weight_sum[i]/model_excess_sqrd[i]
+		Coadd scan axion fit into grand spectra
 		"""
 		#return divider(self, self.chunk['optimal_weight_sum'][inx_start:inx_end], self.chunk['model_excess_sqrd'][inx_start:inx_end])
 
 		return inverse_quadrature(self, self.chunk['axion_fit'][inx_start:inx_end], self.scan['axion_fit'], self.op, -2)
 		
 	def axion_fit_significance_consolidation(self, inx_start, inx_end):
-
+		"""
+		Coadd scan axion fit significance  into grand spectra. Since axion fit and axion fit uncertainty are already coadded, can simply divide the grand spectra axion fit and axion fit 
+		uncertainty to get the coadded axion fit significance
+		"""
+		
 		return divider(self, self.chunk['axion_fit'][inx_start:inx_end], self.chunk['axion_fit_uncertainty'][inx_start:inx_end])
 	
 	def coupling_sensitivity_consolidation(self, inx_start, inx_end):
 		"""
-		csensitivity = self.chunk_sensitivity_coupling
-		ssensitivity = self.scan_sensitivity_coupling
-		for i, val in enumerate(csensitivity):
-			if self.op =="+":
-				csensitivity[i] = (1/val**4 + 1/ssensitivity[i]**4)**(-0.25)
-			else:
-				if (1/val)<(1/ssensitivity[i]):
-					csensitivity[i]=0
-				else:
-					csensitivity[i] = (1/val**4 - 1/ssensitivity[i]**4)**(-0.25)
+		Coadd the scan coupling sensitivity into the grand spectra. 
 		"""
+		
 		return inverse_root_quadrature(self, self.chunk['sensitivity_coupling'][inx_start:inx_end], self.scan['sensitivity_coupling'], self.op, -4)
 	
 	def maximum_likelihood_uncertainty_consolidation(self, inx_start, inx_end):
 		"""
-		axion_fit_uncertainty = self.chunk_axion_fit_uncertainty
-		scan_axion_fit_uncertainty = self.scan_axion_fit_uncertainty
-		for i, val in enumerate(axion_fit_uncertainty):
-			if self.op == "+":
-				axion_fit_uncertainty[i] = (1/val**2 + 1/scan_axion_fit_uncertainty[i]**2)**(0.5)
-			else:
-				if (1/val)<(1/scan_axion_fit_uncertainty[i]):
-					axion_fit_uncertainty[i]=0
-				else:
-					axion_fit_uncertainty[i] = (1/val**2 - 1/scan_axion_fit_uncertainty[i]**2)**(0.5)
+		Coadded the scan maximum likelihood uncertainty into the grand spectra
 		"""
+		
 		return inverse_quadrature(self, self.chunk['axion_fit_uncertainty'][inx_start:inx_end], self.scan['axion_fit_uncertainty'], self.op, -2)
 	
 	def model_excess_sqrd_consolidation(self, inx_start, inx_end):
 		"""
-		MES = self.chunk_model_excess_sqrd
-		sMES = self.scan_model_excess_sqrd
-		for i, val in enumerate(MES):
-
-			if self.op=="+":
-				MES[i] = val + sMES[i]
-			else:
-				MES[i] = val - sMES[i]
+		Coadd the scans model excess sqrd (quadratic coefficient of chi squared) into the grand spectra 
 		"""
+		
 		return add_sub(self, self.chunk['model_excess_sqrd'][inx_start:inx_end], self.scan['model_excess_sqrd'], self.op)
 	
 	def noise_power_consolidation(self, inx_start, inx_end):
 		"""
-		SNR = self.chunk_SNR
-		WS = self.chunk_optimal_weight_sum
-		noise_power=np.asarray([])
-		if len(np.where(WS==0))!=0:
-			for inx, val in enumerate(WS):
-				if val==0 and SNR[inx]==0:
-					#THis could be the case when grand spectra bin is initialized. Maybe theres a better way of doing this?
-					noise_power = np.append(noise_power, 0)
-				elif val==0 and SNR[inx]!=0:
-					noise_power = np.append(noise_power, np.inf)
-				else:
-					noise_power = np.append(noise_power, SNR[inx]/val)
-		else:
-			noise_power=SNR/WS
+		Coadd the scans noise power into the grand spectra. Since SNR and the optimal weight sum were already coadded, can just us the grand spectra SNR and optimal weight sum
 		"""
+		
 		return divider(self, self.chunk['SNR'][inx_start:inx_end], self.chunk['optimal_weight_sum'][inx_start:inx_end])
 	
 	def nscan_consolidation(self, inx_start, inx_end):
 		"""
-		nscans=self.chunk_nscans
-		scan_nscan=self.scan_nscans
-		for i, val in enumerate(nscans):
-			
-			if self.op=="+":
-				nscans[i] = val + scan_nscan[i]
-			else:
-				nscans[i] = val - scan_nscan[i]
+		Coadd the scans nscan into the grand spectra
 		"""
+		
 		return add_sub(self, self.chunk['nscans'][inx_start:inx_end], self.scan['nscans'], self.op)
 		
 	def optimal_weight_sum_consolidation(self, inx_start, inx_end):
 		"""
-		WS = self.chunk_optimal_weight_sum
-		sWS = self.scan_optimal_weight_sum
-		for i, val in enumerate(WS):
-			if self.op=="+":
-				WS[i] = val + sWS[i]
-			else:
-				WS[i] = val - sWS[i]
+		Coadd the scans optimal weight sum (linear coefficient of chi squared) into the grand spectra
 		"""
+		
 		return add_sub(self, self.chunk['optimal_weight_sum'][inx_start:inx_end], self.scan['optimal_weight_sum'], self.op)
 	
 	def power_deviation_consolidation(self, inx_start, inx_end):
 		"""
-		power_deviation = self.chunk_power_deviation
-		spower_deviation = self.scan_power_deviation
-		for i, val in enumerate(power_deviation):
-			if self.op=="+":
-				power_deviation[i] = val + spower_deviation[i]
-			else:
-				power_deviation[i] = val - spower_deviation[i]
+		Coadd the scans power deviations into the grand spectra
 		"""
+		
 		return add_sub(self, self.chunk['power_deviation'][inx_start:inx_end], self.scan['power_deviation'], self.op)
 	
 	def power_sensitivity_consolidation(self, inx_start, inx_end):
 		"""
-		sensitivity = self.chunk_sensitivity_power
-		ssensitivity = self.scan_sensitivity_power
-		for i, val in enumerate(sensitivity):
-			if self.op=="+":
-				sensitivity[i]=(1/val**2 + 1/ssensitivity[i]**2)**(-0.5)
-			else:
-				if (1/val)<(1/ssensitivity[i]):
-					sensitivity[i]=0
-				else:
-					sensitivity[i]=(1/val**2 - 1/ssensitivity[i]**2)**(-0.5)
+		Coadd the scans power sensitivity into the grand spectra
 		"""
+		
 		return inverse_quadrature(self, self.chunk['sensitivity_power'][inx_start:inx_end], self.scan['sensitivity_power'], self.op, -2)
 		
 	def sigma_A_consolidation(self, inx_start, inx_end):
 		"""
-		sigma_A = self.chunk_axion_fit_uncertainty
-		ssigma_A = self.scan_axion_fit_uncertainty
-		for i, val in enumerate(sigma_A):
-			if self.op =="+":
-				sigma_A[i] = (1/(val**2) + 1/(ssigma_A[i]**2))**(1/2)
-			else:
-				if (1/val)<(1/ssigma_A[i]):
-					sigma_A[i]=0
-				else:
-					sigma_A[i] = (np.abs(1/(val**2) - 1/(ssigma_A[i]**2)))**(1/2)
+		Coadd the scans axion fit uncertainty into the grand spectra
 		"""
+		
 		return inverse_quadrature(self, self.chunk['axion_fit_uncertainty'][inx_start:inx_end], self.scan['axion_fit_uncertainty'], self.op, -2)
 	
 	def SNR_consolidation(self, inx_start, inx_end):
 		"""
-		for i, val in enumerate(cSNR):
-			if self.op == "+":
-				cSNR[i] = (val**2 + sSNR[i]**2)**(1/2)
-			else:
-				if val<sSNR[i]:
-					cSNR[i]=0
-				else:
-					cSNR[i] = (val**2 - sSNR[i]**2)**(1/2)
+		Coadd the scans SNR into the grand spectra
 		"""
-		try:
-			return quadrature(self, self.chunk['SNR'][inx_start:inx_end], self.scan['SNR'], self.op, 2)
 		
-		except IndexError:
-			print(self.scan_scan_number)
-			print(len(self.scan['SNR']))
-			raise
+		return quadrature(self, self.chunk['SNR'][inx_start:inx_end], self.scan['SNR'], self.op, 2)
+
 	"""
 	def weighted_delta_consolidation(self):
 		
@@ -213,6 +131,10 @@ class scan_cl(object):
 		return add_sub(self, self.chunk_weighted_deltas, self.scan['weighted_deltas'], self.op)
 	"""
 	def close_out(self, chunk):
+		"""
+		DEPRICATED. I coadd directly to the HDF5 datasets instead.
+		Class method saves the coadded data to the grand spectra. 
+		"""
 		chunk['nscans'][...] = self.chunk['nscans']
 		chunk['sigma_w'][...] = self.chunk['sigma_w']
 		chunk['optimal_weight_sum'][...] = self.chunk['optimal_weight_sum']
@@ -234,8 +156,9 @@ def add_subtract_scan(add_subtract, scan, object, scan_id, grand_spectra_group, 
 	Parameters
 		add_subtract: ('add', 'subtract') Determines what to do with scan
 		scan: (dictionary) items to add to grand spectra, including deltas
-		chunk: (h5py dataset) dataset to add to.
-		scan_id: (
+		object: (class) coaddition class thats adds scan into grand spectra
+		scan_id: (int) id of scan
+		grand spectra group: (HDF5 group) the grand spectra group to be coadded into
 	"""
 	#initialize scan object	
 	if add_subtract == "add":
@@ -252,10 +175,11 @@ def add_subtract_scan(add_subtract, scan, object, scan_id, grand_spectra_group, 
 		add_subtract = 'ommit'
 		object.op = 'nil'
 	
-	
+	#update class attributes
 	object.scan = scan
 	object.scan_scan_number = scan_id
 	
+	#Get indices of grand spectra where scan will be added into
 	appended_length = len(scan['axion_frequencies'])
 	mid_freq = scan['middle_frequency']
 	ainx_start = int(numpy.round((mid_freq - grand_spectra_group['axion_frequencies'][0])/(95.4)) - appended_length/2)
@@ -265,6 +189,7 @@ def add_subtract_scan(add_subtract, scan, object, scan_id, grand_spectra_group, 
 	
 	if not corrupt_scan and object.op!='nil':
 		try:
+			#Perform coaddition using class methods
 			object.chunk['optimal_weight_sum'][ainx_start:ainx_end] = object.optimal_weight_sum_consolidation(ainx_start, ainx_end)
 			object.chunk['model_excess_sqrd'][ainx_start:ainx_end] = object.model_excess_sqrd_consolidation(ainx_start, ainx_end)
 			object.chunk['nscans'][ainx_start:ainx_end] = object.nscan_consolidation(ainx_start, ainx_end)
@@ -283,7 +208,7 @@ def add_subtract_scan(add_subtract, scan, object, scan_id, grand_spectra_group, 
 			raise
 	
 	
-	
+	#Update grand spectra last calculation flag
 	lastcalc = dt.datetime.now()
 	lastcalc = lastcalc.strftime('%Y-%m-%d %H:%M:%S')
 	object.chunk['last_change'][0] = str(lastcalc).encode()	
@@ -291,7 +216,7 @@ def add_subtract_scan(add_subtract, scan, object, scan_id, grand_spectra_group, 
 	
 
 
-	
+#Jit is a decorator that saves the function into machine code, speeding up execution
 @jit
 def divider(self, a1, a2):
 	afit = list(range(len(a1)))

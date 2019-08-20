@@ -29,7 +29,7 @@ class modulation():
 		default_keys = ["pec_vel", "timestamp", "signal", "axion_mass", "dig_dataset"]
 		default = {key: getattr(self, key) for key in default_keys}
 		
-			
+		#Pull scan properties
 		modulation_type = default["pec_vel"]
 		timestamps = default["timestamp"]
 		shape_model = default["signal"]
@@ -46,7 +46,7 @@ class modulation():
 				secondary[key] = getattr(self, key)
 				
 		signals = {}
-		if isinstance(scans, list) or isinstance(scans, numpy.ndarray) or isinstance(scans, dict):
+		if isinstance(scans, list) or isinstance(scans, numpy.ndarray) or isinstance(scans, dict): #If more than one scan is being analyzed
 			counter = 1
 			N_iter = len(self.keys)
 			for key in self.keys:
@@ -56,14 +56,14 @@ class modulation():
 						a_mass = axion_mass[key]
 					else:
 						a_mass = axion_mass
-					signals[key] = self.modulatedsignal(timestamp, shape_model, a_mass, self.mod_vels[timestamp], **secondary)
+					signals[key] = self.modulatedsignal(timestamp, shape_model, a_mass, self.mod_vels[timestamp], **secondary) #Generate modulated signals
 					if ('SIA',True) not in list(self.__dict__.items()):
 						if int(counter/N_iter*100)-counter/N_iter*100<10**(-8):
 							print("generating signals ({0} % complete)                 \r".format(int((counter/N_iter)*100)), end='')
 					counter+=1
 				else:
 					pass
-		else:
+		else: #If only a single scan is being analyzed
 			if not scans.attrs['cut']:
 				scan_id = scans.name[-6:] #Name usually includes the directory too, so just splice out the 6-digit id
 				timestamp = timestamps[scan_id]
@@ -84,7 +84,7 @@ class modulation():
 		if modulation_type == None or modulation_type =="None":
 			modulation_type = "solar"
 		
-		if shape_model!="axionDM_w_baryons":
+		if shape_model!="axionDM_w_baryons": #N-Body signal shape requires the peculiar velocity of earth around sun, not earths total velocity
 			if modulation_type == "solar":
 				return tf_lib.transformer().solar_vel_GalacticFrame(timestamp)
 			elif modulation_type=="earth orbit":

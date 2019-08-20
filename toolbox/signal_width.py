@@ -2,6 +2,9 @@ import numpy as np
 import numba
 
 def calc_signal_width(signal):
+	"""
+	Calculate the width of an axion signal in units of bins
+	"""
 	max = np.max(signal)
 	min = np.min(signal)
 	half_max = (max-min)/2 + min

@@ -11,21 +11,6 @@ def execute(paramdict,datadict, *meta):
 	deltas = {}
 	# cyle though data
 	
-	
-	#meta analysis
-	submeta = {}
-	for arg in meta:
-		submeta['timeit'] = meta[0][0]
-		if submeta['timeit']:
-			submeta['reflecting_time'] = []
-			submeta['calculating_tophat_size'] = []
-			submeta['reciprocating_array'] = []
-			submeta['generating_large_array'] = []
-			submeta['generating_tophat'] = []
-			submeta['fft_and_highpassfilter'] = []
-			submeta['ifft'] = []
-			submeta['picking_og_signal'] = []
-			submeta['dividing_structure'] = []
 			
 
 	for key,scan in datadict['dig_dataset'].items(): # or whatever the key is

@@ -30,16 +30,16 @@ class core_analysis():
 		self.clear_grand_spectra=False
 		self.timeit = False
 		
-		
+		#Define file locations
 		current_dir = os.getcwd()
 		run_definitions_filename = current_dir + "/oo_analysis/job.param"  # from command line, nominally
-		axion_frequencies_filename = current_dir + "/oo_analysis/analysis/software_injection_frequencies.dat"
-		self.bad_scans_filename = current_dir + "/oo_analysis/analysis/bad_scans.dat"
-		self.output_file = current_dir + "/oo_analysis/output/grand_spectra.dat"
-		self.error_file = current_dir + "/oo_analysis/meta/error_log"
+		axion_frequencies_filename = current_dir + "/oo_analysis/analysis/software_injection_frequencies.dat" #File location holding synthetic axion frequencies
+		self.bad_scans_filename = current_dir + "/oo_analysis/analysis/bad_scans.dat" #File location holding pre-determined bad scans
+		self.output_file = current_dir + "/oo_analysis/output/grand_spectra.dat" #FIle location holds grand spectra
+		self.error_file = current_dir + "/oo_analysis/meta/error_log" #File location holding meta data
 		
-		self.params = parser(run_definitions_filename)
-        # set switches of analysis
+		self.params = parser(run_definitions_filename) #Set switches of analysis
+
         # default
 		self.make_plots = False
 		self.plot_style = 'fast'
@@ -62,6 +62,8 @@ class core_analysis():
 			if arg in self.params.keys():
 				self.params[str(arg)] = val
 		
+		
+		#This prints to the command line
 		run_definitions_string = """ 
 Run Definitions:\t\t\t\t\t\t\t\t\t\tRun Arguments:       
 \tfilter = {0}\t\t\t\t\t\t\t\t\t\t\tClear grand spectra = {1}
@@ -76,9 +78,9 @@ Run Definitions:\t\t\t\t\t\t\t\t\t\tRun Arguments:
 		
 		
 		#find bad scans saved to file
-		self.bad_scans_file = open(self.bad_scans_filename, 'r')
-		self.bad_scans = list(map(int, self.bad_scans_file.readlines()))
-		self.params['bad_scans'] = self.bad_scans
+		self.bad_scans_file = open(self.bad_scans_filename, 'r') #Open pre-determined bad scans file
+		self.bad_scans = list(map(int, self.bad_scans_file.readlines())) #House pre-determined bad scan id's in array
+		self.params['bad_scans'] = self.bad_scans #Add bad scan id's into the analysis parameters
 		
         # set data structures
 		from oo_analysis.data import input, add_input
@@ -88,7 +90,7 @@ Run Definitions:\t\t\t\t\t\t\t\t\t\tRun Arguments:
 		pulldata_stop = time.time()
 		
 		
-		self.update_astronomical_tables()
+		self.update_astronomical_tables() #Update astronomical databases
         
 		
 		# derive necessary experiment data structures (put into dig_dataset)
@@ -107,12 +109,13 @@ Run Definitions:\t\t\t\t\t\t\t\t\t\tRun Arguments:
 		self.bad_scans = [key for key in self.keys if self.dig_dataset[key].attrs['cut']] #list containing bad datasets
 		
 		add_input(self.dig_dataset,self.Tsys,'Tsys')
+		
+		#If grand spectra flag is true, delete the grand spectra (Will be initalized later in analysis)
 		if args!=None and self.clear_grand_spectra and 'grand_spectra_run1a' in self.h5py_file.keys():
-			del self.h5py_file['grand_spectra_run1a']
+			del self.h5py_file['grand_spectra_run1a'] 
 		# derive necessary digitization structures??
 		
 		#Import axion frequencies to inject
-		
 		with open(axion_frequencies_filename, 'r') as file:
 			self.axion_frequencies_to_inject = list(map(float, file.readlines()))
 		
@@ -149,6 +152,7 @@ Run Definitions:\t\t\t\t\t\t\t\t\t\tRun Arguments:
 
 	def execute(self, timeit=False):
 		try:
+			#Collect bad scans 
 			bad_scans = self.collect_bad_scans()
 			#Catch zero scan analysis
 			if len(self.keys)==0 or not bad_scans:
@@ -161,12 +165,13 @@ Run Definitions:\t\t\t\t\t\t\t\t\t\tRun Arguments:
 			
 			# set all calculations in motion			
 			
-			
+			#Generate axion filters
 			import oo_analysis.signals
 			self.signal_dataset = oo_analysis.signals.generate(self)			
 			
 			import oo_analysis.analysis
 			
+			#Perform analysis
 			self.analysis_start=time.time()
 			self.grand_spectra_group, self.candidates, ncut, self.background_sizes, self.analyzed_keys = oo_analysis.analysis.grand_spectra(self)
 			self.analysis_stop=time.time()
@@ -203,7 +208,7 @@ Run Definitions:\t\t\t\t\t\t\t\t\t\tRun Arguments:
 			except SystemExit:
 				os._exit(0)
 		finally:
-			#save analysis to disk, generate plots, and close out file
+			#Save to disk and close out file
 			string="Analysis of {0} scans took {1:0.3f} seconds. There were {2} candidates detected. {3:0.3f} scans were cut".format(len(self.keys),  self.analysis_stop-self.analysis_start, len(self.candidates), ncut)
 			print(string)
 			self.h5py_file.close() #Close the file, saving the changes.
@@ -328,19 +333,22 @@ Run Definitions:\t\t\t\t\t\t\t\t\t\tRun Arguments:
 		kwargs = {"Tsys": list(self.Tsys.values()), "timestamp":list(self.timestamp.values()), "mode_frequencies": list(self.mode_frequencies.values()), "params": self.params}
 		
 		print("Generating plots")
-		fig_cl = figures_class(save_dir)
-		fig_cl.style = self.plot_style
-		fig_cl.deltas(**kwargs)
-		fig_cl.fit_significance(**kwargs)
-		fig_cl.fit_significance(hist=True, **kwargs)
-		fig_cl.sensitivity_DM(**kwargs)
-		fig_cl.sensitivity_power(**kwargs)
-		fig_cl.sensitivity_coupling(**kwargs)
-		fig_cl.SNR(**kwargs)
-		fig_cl.bg_sizes(background_sizes = self.background_sizes, mode_frequencies = [self.mode_frequencies[i] for i in self.analyzed_keys])
-		[fig_cl.synth_injection(str(i)) for i in self.axion_frequencies_to_inject]
+		fig_cl = figures_class(save_dir) #Initialize plotting class
+		fig_cl.style = self.plot_style #Set plot styles
+		fig_cl.deltas(**kwargs) #Plot histogram of deltas
+		fig_cl.fit_significance(**kwargs) #Plot grand axion fit significance
+		fig_cl.fit_significance(hist=True, **kwargs) #Plot histogram of grand axion fit significance
+		fig_cl.sensitivity_DM(**kwargs) #Plot grand Dark Matter density sensitivity
+		fig_cl.sensitivity_power(**kwargs) #Plot grand power sensitivity
+		fig_cl.sensitivity_coupling(**kwargs) #Plot grand coupling sensitivity
+		fig_cl.SNR(**kwargs) #plot grand SNR
+		fig_cl.bg_sizes(background_sizes = self.background_sizes, mode_frequencies = [self.mode_frequencies[i] for i in self.analyzed_keys]) #Plot all background sizes
+		[fig_cl.synth_injection(str(i)) for i in self.axion_frequencies_to_inject] #Plot scan deltas that have a synthetic axion injected
 		
 	def update_astronomical_tables(self):
+		"""
+		Update astronomical databases 
+		"""
 		curr_time = dt.datetime.now()
 		if "grand_spectra_run1a" in self.h5py_file.keys():
 			last_change = self.h5py_file['grand_spectra_run1a']['last_change'][0].decode()
@@ -364,6 +372,9 @@ Run Definitions:\t\t\t\t\t\t\t\t\t\tRun Arguments:
 					print("Cannot download astronomical data. Check internet connection or manually update datatables. Defaulting to stored data")
 	
 	def garbage_collector(self):
+		"""
+		Free up memory post-analysis
+		"""
 		import gc
 		gc.collect()
 		

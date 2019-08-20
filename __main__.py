@@ -11,7 +11,7 @@ import time
 import argparse
 import cProfile, pstats, io, os, sys #Meta analysis
 
-############# Meta analysis
+############# Meta analysis file location
 profiler_destination = os.getcwd() + "/oo_analysis/meta/Analytics.txt"
 
 ############# Argument parsing
@@ -30,52 +30,53 @@ args = P.parse_args()
 
 if args.timeit:
 	print("################## Running meta analysis ##################")
-	profiler = cProfile.Profile()
-	profiler.enable()
+	profiler = cProfile.Profile() #Initialize profiler
+	profiler.enable() #Enable the profiler
 	
-	total_analysis_start = time.time()
-	full_analysis = core_analysis(args)
+	total_analysis_start = time.time() #Get current system time
+	full_analysis = core_analysis(args) #Initialize main analysis class
 
-	full_analysis.execute()
+	full_analysis.execute() #Execute the main analysis
 
 	n=1
-	while full_analysis.partitioned:
-		args.clear_grand_spectra=False
+	while full_analysis.partitioned: #If the data file was partition, run the analysis over the remaining partitions (Paritioning allows the analysis to be run on computers with limited RAM)
+		args.clear_grand_spectra=False #Dont clear the grand spectra since were running the analysis on the next partition and will add this partition to the grand spectra
 		print("running next partition. (loop number: {0}) (partition [{1}, {2}])".format(n, max(map(int,x.keys))+1, x.end_scan))
-		params = {'start_scan': max(map(int,full_analysis.keys))+1, 'end_scan': full_analysis.end_scan}
-		full_analysis = core_analysis(**params)
-		full_analysis.execute(args)
+		params = {'start_scan': max(map(int,full_analysis.keys))+1, 'end_scan': full_analysis.end_scan} #Next partition
+		full_analysis = core_analysis(**params) #Initialize analysis class for next partition
+		full_analysis.execute(args) #Execute analysis on next partition
 		n+=1
-	full_analysis.garbage_collector()
+	full_analysis.garbage_collector() #Collect garbage to free up memory
 
-	total_analysis_stop = time.time()
+	total_analysis_stop = time.time() #Current system time
 
 	print("\nEntire analysis over all {0} partitions took {1:0.3f} seconds".format(n, total_analysis_stop-total_analysis_start))
 	
-	profiler.disable()
-	stream = io.StringIO()
-	stats = pstats.Stats(profiler, stream=stream).sort_stats('cumtime')
-	stats.print_stats()
+	profiler.disable() #Disable profiler
+	stream = io.StringIO() #Set the input output locations
+	stats = pstats.Stats(profiler, stream=stream).sort_stats('cumtime') #Get the profiler statistics
+	stats.print_stats() #Print the profile statistics to the input output location
 	with open(profiler_destination, 'w+') as f:
-		f.write(stream.getvalue())
+		f.write(stream.getvalue()) #Save profiler statistics to file
 else:
 		
-	total_analysis_start = time.time()
-	full_analysis = core_analysis(args)
+	total_analysis_start = time.time() #Get the current system time
+	full_analysis = core_analysis(args) #Initialize the main analysis class
 
-	full_analysis.execute()
+	full_analysis.execute() #Execute the main analysis
 
 	n=1
+	#If the data file was partitioned, run the analysis over the remaining partitions (Partitioning allows the analysis to be run on machines with limited RAM)
 	while full_analysis.partitioned:
-		args.clear_grand_spectra=False
+		args.clear_grand_spectra=False #DOnt clear grand spectra since we need to add this next partition into it
 		print("running next partition. (loop number: {0}) (partition [{1}, {2}])".format(n, max(map(int,x.keys))+1, x.end_scan))
-		params = {'start_scan': max(map(int,full_analysis.keys))+1, 'end_scan': full_analysis.end_scan}
-		full_analysis = core_analysis(**params)
-		full_analysis.execute(args)
+		params = {'start_scan': max(map(int,full_analysis.keys))+1, 'end_scan': full_analysis.end_scan} #Next partition
+		full_analysis = core_analysis(**params) #Initialize main analysis class for next partition
+		full_analysis.execute(args) #Execute the main analysis on this partition
 		n+=1
-	full_analysis.garbage_collector()
+	full_analysis.garbage_collector() #Collect garbage to free up system memory
 
-	total_analysis_stop = time.time()
+	total_analysis_stop = time.time() #Current system time
 
 	print("\nEntire analysis over all {0} partitions took {1:0.3f} seconds".format(n, total_analysis_stop-total_analysis_start))
 	
