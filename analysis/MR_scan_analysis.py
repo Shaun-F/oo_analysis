@@ -269,7 +269,7 @@ def chi_squared(deltas, axion_signal, cavity_lorentzian, sigma, **kwargs):
 	coupling_sensitivity = numpy.sqrt(power_sensitivity)
 
 	#The following is me trying to figure out whats wrong with the fit significance calculation
-	
+	"""
 	prox = []
 	for i in range(len(axion_fit_significance)):
 		if numpy.isinf(axion_fit_significance[i]):
@@ -297,7 +297,7 @@ def chi_squared(deltas, axion_signal, cavity_lorentzian, sigma, **kwargs):
 	ax[1,3].set_title("dimensionless deltas \n(sigma = {0:0.5f})".format(numpy.nanstd(kwargs['dimless_deltas'])))
 	ax[1,3].plot(kwargs['dimless_deltas'])
 	plt.show()
-	
+	"""
 	
 	results = {'chi_squared_term_one': chi_squared_term_one,
 				'chi_squared_term_two': chi_squared_term_two,
