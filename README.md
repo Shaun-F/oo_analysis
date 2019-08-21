@@ -8,7 +8,7 @@ Clone the repository from Github (https://github.com/Shaun-F/oo_analysis). The d
 <p>
 https://drive.google.com/drive/folders/1iDYiKY5wITNnuGIOHgChGz-0MCpanHiC?usp=sharing
 </p>
-and place them in 'oo_analysis/data'
+Unzip the datafile and place it in 'oo_analysis/data/'.
 <p>
 Please see the oo_analysis/meta/requirements.txt file for a complete list of currently implemented packages and required programs.
 </p>
