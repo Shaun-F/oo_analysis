@@ -62,8 +62,8 @@ def MR_scan_analysis(scan, **params):
 		h = const.h.to(U.eV*U.s).value #plancks const eV*s
 		k = const.k_B.to(U.J/U.Kelvin).value #Boltzmanns constant J/K
 		Tsys = params["Tsys"] #calculate the system temperature
-		power_johnson = signal_width_Hz*k*Tsys #johnson noise power
-		
+		power_johnson = signal_width_Hz*k*Tsys #johnson noise power (Watts)
+
 		scan_length = len(freqs) #Length of scans frequency domain 
 		
 		#Find the middle frequency (should be the resonant frequency)
@@ -90,7 +90,6 @@ def MR_scan_analysis(scan, **params):
 		DFSZshape = signal_shape*dfszaxion #Construct unit-full axion spectra (Watts)
 
 		#Remove Receiver response from scan
-
 		filter_function = getattr(backsub_filters_lib, params['filter']) #Get the filtering function as determined from the analysis parameters
 		data[0] = np.mean([data[1], data[2], data[3]]) # Some spectra have odd behavior at beginning of scan, i.e. a single downward spike at the beginning position. I just set a default value
 		filtered_dict = filter_function(data, **{**params['filter_params'], **params}) #Filter the data
@@ -128,8 +127,12 @@ def MR_scan_analysis(scan, **params):
 		
 		#Genereate bin-wise scan stats assuming all power in single bin
 		sigma = numpy.std(deltas)
-		sigma_w = power_johnson*(signal_width_Hz*int_time)**(-1/2) #Weight sigma (Watts)
-		power_deltas = power_johnson*deltas
+		sigma_w = power_johnson/numpy.sqrt(signal_width_Hz*int_time) #Weight sigma (Watts)
+		print(power_johnson)
+		print(signal_width_Hz)
+		print(int_time)
+		print(sigma_w)
+		power_deltas = power_johnson*deltas #B * k_bol * T_sys * deltas
 		nscans = lorentzian_profile
 		SNR = (axion_power_excess_watts/sigma_w) #Calculate Signal-To-Noise Ratio
 		
@@ -141,8 +144,8 @@ def MR_scan_analysis(scan, **params):
 		"""
 		
 		#Perform chi squared statistic
-		chi_squared_results = chi_squared(power_deltas, DFSZshape, lorentzian_profile, noise_disp = sigma_w, cc=0.5, dimless_deltas = deltas) 
-		
+		chi_squared_results = chi_squared(power_deltas, DFSZshape, lorentzian_profile, sigma_w, cc=0.5, dimless_deltas = deltas) 
+
 		sensitivity_power = chi_squared_results['power_sensitivity']
 		sensitivity_coupling = chi_squared_results['coupling_sensitivity']
 		maximum_likelihood = chi_squared_results['maximum_likelihood']
@@ -217,7 +220,7 @@ def convolve_two_arrays(array1, array2):
 	ret = _centered(convolved_arr, s1) #Recover wanted array
 	return ret
 
-def chi_squared(deltas, axion_signal, cavity_lorentzian, **kwargs):
+def chi_squared(deltas, axion_signal, cavity_lorentzian, sigma, **kwargs):
 	"""
 	Chi squared as calculated in Improving Axion Signal Models Through N-Body 
 	Simulations by Erik Lentz 2017. Specifically, section 5.5. Each term corresponds to the terms of equation 5.23 in thesis.
@@ -227,9 +230,10 @@ def chi_squared(deltas, axion_signal, cavity_lorentzian, **kwargs):
 	#deltas = numpy.array([numpy.random.normal(scale=0.01) for i in range(256)])
 	#noise_disp = 0.01
 	
-	noise_disp = kwargs['noise_disp']
+	noise_disp = sigma
 	#noise_disp = numpy.sqrt(sum(deltas**2)/(len(deltas)-1))
 	#noise_disp = numpy.std(deltas)
+	
 	
 	if 'cc' not in kwargs:
 		cc=0.5  #coupling of photons to cavity
@@ -257,7 +261,7 @@ def chi_squared(deltas, axion_signal, cavity_lorentzian, **kwargs):
 	
 	chi_squared_small_difference = chi_squared(maximum_likelihood+1) - chi_squared(maximum_likelihood) #equation 5.28 in Lentz Thesis
 	
-	maximum_likelihood_uncertainty = (2*chi_squared_small_difference)**(-1/2) #equ 5.27 in Lentz Thesis
+	maximum_likelihood_uncertainty = 1/numpy.sqrt(2*chi_squared_small_difference) #equ 5.27 in Lentz Thesis
 	
 	maximum_likelihood_uncertainty = new_padding(maximum_likelihood_uncertainty, (pad_len,pad_len), pad_val = np.inf) 
 	
@@ -267,9 +271,8 @@ def chi_squared(deltas, axion_signal, cavity_lorentzian, **kwargs):
 	power_sensitivity = new_padding(maximum_likelihood_uncertainty*cl_coeff, (pad_len,pad_len), pad_val = np.inf) #Pow. Sens goes like 1/axion power
 	coupling_sensitivity = numpy.sqrt(power_sensitivity)
 
-
 	#The following is me trying to figure out whats wrong with the fit significance calculation
-	"""
+	
 	prox = []
 	for i in range(len(axion_fit_significance)):
 		if numpy.isinf(axion_fit_significance[i]):
@@ -296,9 +299,8 @@ def chi_squared(deltas, axion_signal, cavity_lorentzian, **kwargs):
 	ax[1,2].plot(deltas/noise_disp)
 	ax[1,3].set_title("dimensionless deltas \n(sigma = {0:0.5f})".format(numpy.nanstd(kwargs['dimless_deltas'])))
 	ax[1,3].plot(kwargs['dimless_deltas'])
-	ax[1,4].plot(numpy.sqrt(2)*chi_squared_term_two/numpy.sqrt(chi_squared_term_three))
 	plt.show()
-	"""
+	
 	
 	results = {'chi_squared_term_one': chi_squared_term_one,
 				'chi_squared_term_two': chi_squared_term_two,

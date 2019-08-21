@@ -18,3 +18,17 @@ ufunc 'add' did not contain a loop with signature matching types dtype('<U52') d
 ufunc 'add' did not contain a loop with signature matching types dtype('<U52') dtype('<U52') dtype('<U52')
 
 initialization() missing 1 required positional argument: 'keys'
+
+'noise_disp'
+
+'noise_disp'
+
+'dimless_deltas'
+
+'dimless_deltas'
+
+operands could not be broadcast together with shapes (280,) (256,) 
+
+operands could not be broadcast together with shapes (10000,) (280,) 
+
+operands could not be broadcast together with shapes (10000,) (280,) 

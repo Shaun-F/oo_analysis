@@ -67,7 +67,7 @@ class analyzer(object):
 		int_times = dict((key, float(self.dig_dataset[key].attrs['integration_time'])) for key in self.analyzed_keys) #Collection of scan integration times (seconds)
 		bandwidths = dict((key, 10**6*float(self.dig_dataset[key].attrs['frequency_resolution'])) for key in self.analyzed_keys) #Collection of scan resolutions (Hz)
 
-]
+
 		#radiometer dispersion: Tsys/root(B*t) B==bandidth t==integration time
 		radiometer_dispersion = dict((key,(1/(int_times[key]*bandwidths[key])**(0.5))) for key in self.analyzed_keys) #Get collection of radiometer dispersion for each analyzed scan
 		scan_dispersion = dict((key, self.analysis_results[key]['sigma']) for key in self.analyzed_keys) #Get collection of analyzed scans dispersion
