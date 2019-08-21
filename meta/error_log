@@ -32,3 +32,9 @@ operands could not be broadcast together with shapes (280,) (256,)
 operands could not be broadcast together with shapes (10000,) (280,) 
 
 operands could not be broadcast together with shapes (10000,) (280,) 
+
+invalid index to scalar variable.
+
+arange: cannot compute length
+
+index 279 is out of bounds for axis 0 with size 279

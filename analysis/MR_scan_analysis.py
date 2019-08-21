@@ -267,7 +267,7 @@ def chi_squared(deltas, axion_signal, cavity_lorentzian, sigma, **kwargs):
 	#Sensitivity is calculated using significance of fit to axion of known power
 	power_sensitivity = new_padding(maximum_likelihood_uncertainty*cl_coeff, (pad_len,pad_len), pad_val = np.inf) #Pow. Sens goes like 1/axion power
 	coupling_sensitivity = numpy.sqrt(power_sensitivity)
-
+	
 	#The following is me trying to figure out whats wrong with the fit significance calculation
 	"""
 	prox = []
