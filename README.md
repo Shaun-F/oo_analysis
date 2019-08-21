@@ -4,7 +4,8 @@ Object-Oriented Analysis (OO-Analysis) is a python package for analyzing ADMX da
 
 ## Installation
 
-Clone the repository from Github (https://github.com/Shaun-F/oo_analysis). The data files are too large to be stored on Github, so contact me directly and we can figure out a way to send them to you.
+Clone the repository from Github (https://github.com/Shaun-F/oo_analysis). The data files are too large to be stored on Github, so please download them from here:
+https://drive.google.com/drive/folders/1iDYiKY5wITNnuGIOHgChGz-0MCpanHiC?usp=sharing
 Please see the oo_analysis/meta/requirements.txt file for a complete list of currently implemented packages and required programs.
 
 ## Usage
