@@ -128,10 +128,6 @@ def MR_scan_analysis(scan, **params):
 		#Genereate bin-wise scan stats assuming all power in single bin
 		sigma = numpy.std(deltas)
 		sigma_w = power_johnson/numpy.sqrt(signal_width_Hz*int_time) #Weight sigma (Watts)
-		print(power_johnson)
-		print(signal_width_Hz)
-		print(int_time)
-		print(sigma_w)
 		power_deltas = power_johnson*deltas #B * k_bol * T_sys * deltas
 		nscans = lorentzian_profile
 		SNR = (axion_power_excess_watts/sigma_w) #Calculate Signal-To-Noise Ratio
@@ -144,6 +140,7 @@ def MR_scan_analysis(scan, **params):
 		"""
 		
 		#Perform chi squared statistic
+		sigma_w = np.std(power_deltas)
 		chi_squared_results = chi_squared(power_deltas, DFSZshape, lorentzian_profile, sigma_w, cc=0.5, dimless_deltas = deltas) 
 
 		sensitivity_power = chi_squared_results['power_sensitivity']
